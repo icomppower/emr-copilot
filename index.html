@@ -10,8 +10,9 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <style>
-/* Layout: night-shift control room. Slim header → revenue + KPI strip → full-width live agent graph (hero, with inspector) → log beside case queue → staff tray.
-Dark-only on purpose: the story happens after the clinic closes. */
+/* Layout: full-viewport night-shift console. Header → KPI tiles (click to expand a drawer) → graph hero | splitter | dock (log, queue, staff tray).
+Sizing: one fluid root font-size, everything else rem/clamp; @media for the shell (dock side ≥1100px, bottom below, stacked on phones), @container for panels.
+Dark-only on purpose: the story happens after the clinic closes. Patterns and reasons: RESEARCH.md */
 :root{
 --bg:#070d1a; --bg-glow:#112347; --panel:#0e1729; --panel-2:#132036; --line:#1f2e4a; --line-2:#2a3d60;
 --ink:#e8eefa; --muted:#8798b6;
@@ -23,88 +24,155 @@ Dark-only on purpose: the story happens after the clinic closes. */
 --display:"Bricolage Grotesque","Avenir Next",system-ui,sans-serif;
 --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
 --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+--gap:clamp(.5rem,.7vw,1rem); --hdr:2.7rem; --ease:cubic-bezier(.2,.8,.2,1);
 color-scheme:dark;
 }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
-html,body{background:var(--bg)}
-body{color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.45;min-height:100vh;
-background:radial-gradient(1100px 500px at 75% -160px,var(--bg-glow),transparent 70%),var(--bg)}
-.wrap{max-width:1440px;margin:0 auto;padding-inline:16px;padding-block:16px 48px;display:grid;gap:14px}
-button{font:inherit;cursor:pointer;border-radius:9px;border:1px solid var(--agent);background:var(--agent);color:#03202b;font-weight:600;padding:8px 15px;transition:filter .12s,transform .12s}
+html{font-size:clamp(13px,.45vw + 8.4px,19px);background:var(--bg)}
+html.present{font-size:clamp(15px,.62vw + 9px,25px)}
+html,body{height:100%}
+body{margin:0;color:var(--ink);font-family:var(--sans);font-size:.9rem;line-height:1.45;overflow:hidden;
+background:radial-gradient(70rem 32rem at 75% -10rem,var(--bg-glow),transparent 70%),var(--bg)}
+.app{height:100dvh;display:grid;grid-template-rows:auto auto auto minmax(0,1fr);padding:var(--gap) clamp(.75rem,1.4vw,1.75rem);max-width:2560px;margin:0 auto}
+button{font:inherit;cursor:pointer;border-radius:.55rem;border:1px solid var(--agent);background:var(--agent);color:#03202b;font-weight:600;padding:.45em 1em;transition:filter .12s,transform .12s,background .15s}
 button:hover:not(:disabled){filter:brightness(1.1)}
 button:active:not(:disabled){transform:translateY(1px)}
 button:disabled{opacity:.45;cursor:default}
-button:focus-visible,tr:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 .ghost{background:transparent;color:var(--agent)}
 .ghost.on{background:var(--agent-soft)}
-.lbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.11em;color:var(--muted);font-weight:600}
+button.sm{padding:.2em .7em;font-size:.78rem}
+.plain{background:transparent;border:0;border-radius:0;color:var(--ink);font-weight:inherit;text-align:left;padding:0}
+.plain:hover:not(:disabled){filter:none}
+.plain:active:not(:disabled){transform:none}
+.lbl{font-size:.68rem;text-transform:uppercase;letter-spacing:.11em;color:var(--muted);font-weight:600}
 .num{font-variant-numeric:tabular-nums}
+.mono{font-family:var(--mono);font-size:.8rem}
+.empty{color:var(--muted);font-size:.82rem;margin:0}
+.chev{display:inline-grid;place-items:center;width:1rem;flex:none}
+.chev::before{content:"";width:.42em;height:.42em;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg);transition:transform .25s var(--ease)}
+[aria-expanded="true"] .chev::before,[aria-expanded="true"].chev::before{transform:rotate(45deg)}
+.why{border-left:2px solid var(--dec);padding:.35rem .65rem;background:var(--dec-soft);border-radius:0 .5rem .5rem 0;font-size:.8rem}
+.why.v{border-color:var(--verify);background:var(--verify-soft)}
+.why.b{border-color:var(--bad);background:var(--bad-soft)}
+.why.w{border-color:var(--warn);background:var(--warn-soft)}
+.tag{display:inline-flex;font-size:.7rem;font-weight:600;border-radius:999px;padding:.05rem .5rem;border:1px solid var(--line-2)}
+.pill{display:inline-flex;font-size:.72rem;font-weight:600;padding:.12rem .55rem;border-radius:999px;white-space:nowrap}
+.s-queued{background:var(--line);color:var(--muted)}.s-working{background:#18264a;color:var(--run)}.s-retry{background:var(--warn-soft);color:var(--warn)}
+.s-fix{background:var(--verify-soft);color:var(--verify)}.s-done{background:var(--ok-soft);color:var(--ok)}.s-esc{background:var(--bad-soft);color:var(--bad)}
+.code{font-family:var(--mono);font-size:.7rem;border:1px solid var(--line-2);border-radius:.3rem;padding:0 .3rem;color:var(--ink)}
+/* animated disclosure: grid rows 0fr → 1fr */
+.acc{display:grid;grid-template-rows:0fr;transition:grid-template-rows .32s var(--ease)}
+.open>.acc,.acc.open{grid-template-rows:1fr}
+.acc>.in{min-height:0;overflow:hidden}
 /* Header */
-header{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justify-content:space-between}
-.brand{display:flex;align-items:center;gap:12px;min-width:0}
-.mark{width:40px;height:40px;border-radius:11px;flex:none;display:grid;place-items:center;background:linear-gradient(140deg,var(--agent),#2b6fc0);color:#03141c;font-family:var(--display);font-weight:800;font-size:17px}
-h1{font-family:var(--display);font-size:26px;font-weight:800;margin:0;letter-spacing:-.02em;line-height:1.05}
-.sub{color:var(--muted);font-size:12.5px;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
-.chip{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;border:1px solid var(--line-2);border-radius:999px;padding:2px 9px;color:var(--muted);background:var(--panel)}
+header{display:flex;flex-wrap:wrap;gap:.6rem 1.5rem;align-items:center;justify-content:space-between;padding-bottom:var(--gap)}
+.brand{display:flex;align-items:center;gap:.75rem;min-width:0}
+.mark{width:2.5rem;height:2.5rem;border-radius:.7rem;flex:none;display:grid;place-items:center;background:linear-gradient(140deg,var(--agent),#2b6fc0);color:#03141c;font-family:var(--display);font-weight:800;font-size:1.05rem}
+h1{font-family:var(--display);font-size:clamp(1.3rem,1.05rem + .6vw,1.9rem);font-weight:800;margin:0;letter-spacing:-.02em;line-height:1.05}
+.sub{color:var(--muted);font-size:.8rem;display:flex;flex-wrap:wrap;gap:.25rem .6rem;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:.35rem;font-size:.7rem;font-weight:600;border:1px solid var(--line-2);border-radius:999px;padding:.1rem .55rem;color:var(--muted);background:var(--panel)}
 .chip.c{color:var(--agent);border-color:color-mix(in srgb,var(--agent) 40%,transparent)}
 .chip.d{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 40%,transparent)}
-.right{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
-.clock{display:grid;gap:4px;min-width:170px}
-.clock .t{font-family:var(--display);font-size:32px;font-weight:700;line-height:1;letter-spacing:-.02em}
-.clock .t small{font-size:12.5px;color:var(--muted);font-family:var(--sans);font-weight:500;letter-spacing:0;margin-left:6px}
+.right{display:flex;align-items:center;gap:1.1rem;flex-wrap:wrap}
+.clock{display:grid;gap:.25rem;min-width:10rem}
+.clock .t{font-family:var(--display);font-size:clamp(1.5rem,1.15rem + .8vw,2.3rem);font-weight:700;line-height:1;letter-spacing:-.02em}
+.clock .t small{font-size:.8rem;color:var(--muted);font-family:var(--sans);font-weight:500;letter-spacing:0;margin-left:.4rem}
 .track{height:4px;border-radius:2px;background:var(--line);overflow:hidden}
 .track i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--agent),var(--verify));transition:width .25s linear}
-.ctrls{display:flex;gap:8px;flex-wrap:wrap}
-/* KPI strip */
-.strip{display:grid;grid-template-columns:minmax(260px,1.2fr) repeat(6,minmax(0,1fr));gap:10px}
-@media (max-width:1100px){.strip{grid-template-columns:repeat(3,minmax(0,1fr))}.money{grid-column:1/-1}}
-@media (max-width:520px){.strip{grid-template-columns:repeat(2,minmax(0,1fr))}}
-.money{border-radius:14px;padding:12px 16px;border:1px solid color-mix(in srgb,var(--money) 32%,var(--line));background:linear-gradient(160deg,var(--money-soft),var(--panel) 70%);display:grid;gap:2px;align-content:center}
+.ctrls{display:flex;gap:.5rem;flex-wrap:wrap}
+/* KPI tiles (buttons) + drawer */
+.strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,7.2rem),1fr));gap:calc(var(--gap)*.8);padding-bottom:var(--gap)}
+.tile{background:var(--panel);border:1px solid var(--line);color:var(--ink);font-weight:400;text-align:left;border-radius:.8rem;padding:.5rem .8rem;display:grid;gap:.05rem;align-content:center;position:relative}
+.tile:hover:not(:disabled){filter:none;border-color:var(--line-2)}
+.tile[aria-expanded="true"]{border-color:var(--tc,var(--agent));box-shadow:inset 0 -3px 0 var(--tc,var(--agent))}
+.tile .n{font-family:var(--display);font-size:clamp(1.35rem,.95rem + 1vw,2.2rem);font-weight:700;line-height:1.05;letter-spacing:-.02em;color:var(--tc)}
+.tile .hint{position:absolute;top:.45rem;right:.6rem;color:var(--muted);font-size:.75rem}
+.tile.ok{--tc:var(--ok)}.tile.bad{--tc:var(--bad)}.tile.a{--tc:var(--agent)}.tile.d{--tc:var(--dec)}.tile.w{--tc:var(--warn)}.tile.v{--tc:var(--verify)}
+.money{--tc:var(--money);grid-column:span 2;border-color:color-mix(in srgb,var(--money) 32%,var(--line));background:linear-gradient(160deg,var(--money-soft),var(--panel) 70%)}
 .money .lbl{color:var(--money)}
-.money .big{font-family:var(--display);font-weight:800;font-size:clamp(34px,4vw,48px);line-height:1;letter-spacing:-.03em;color:var(--money)}
+.money .big{font-family:var(--display);font-weight:800;font-size:clamp(1.8rem,1.1rem + 1.8vw,3.2rem);line-height:1;letter-spacing:-.03em;color:var(--money)}
 .money .big .c{font-size:.5em;opacity:.7}
-.money .brk{font-size:11.5px;color:var(--muted)}
+.money .brk{font-size:.72rem;color:var(--muted)}
 .money.bump .big{animation:bump .45s ease}
-.kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:grid;gap:2px;align-content:center}
-.kpi .n{font-family:var(--display);font-size:28px;font-weight:700;line-height:1.05;letter-spacing:-.02em}
-.kpi.ok .n{color:var(--ok)}.kpi.bad .n{color:var(--bad)}.kpi.a .n{color:var(--agent)}.kpi.d .n{color:var(--dec)}.kpi.w .n{color:var(--warn)}.kpi.v .n{color:var(--verify)}
-/* Graph hero */
-.stage{position:relative;border-radius:16px;border:1px solid var(--line);overflow:hidden;
+.drawer.open>.in>.box{margin-bottom:var(--gap)}
+.box{background:var(--panel-2);border:1px solid var(--line-2);border-radius:.8rem;padding:.6rem .8rem;display:grid;gap:.5rem}
+.box .dh{display:flex;align-items:center;gap:.6rem}
+.box .dh b{font-family:var(--display);font-size:1rem}
+.box .dh button{margin-left:auto}
+.dl{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,17rem),1fr));gap:.4rem;max-height:min(20dvh,11rem);overflow:auto}
+.di{background:var(--panel);border:1px solid var(--line);color:var(--ink);font-weight:400;text-align:left;display:grid;grid-template-columns:auto minmax(0,1fr);gap:0 .55rem;padding:.4rem .6rem;border-radius:.55rem;font-size:.8rem}
+.di:hover:not(:disabled){filter:none;border-color:var(--agent)}
+.di .mono{color:var(--muted);font-size:.72rem;padding-top:.08rem}
+.di small{grid-column:2;color:var(--muted);font-size:.72rem}
+/* Main split */
+.main{min-height:0;display:grid;grid-template-columns:minmax(0,1fr) .75rem var(--dockW,clamp(22rem,30vw,40rem));grid-template-rows:minmax(0,1fr)}
+.main.dock-off{grid-template-columns:minmax(0,1fr) .75rem 0}
+.main.dragging{user-select:none;cursor:col-resize}
+.split{position:relative;cursor:col-resize;touch-action:none;display:grid;place-items:center;border-radius:.4rem}
+.split::before{content:"";width:3px;height:2.6rem;border-radius:2px;background:var(--line-2);transition:background .15s}
+.split:hover::before,.split:focus-visible::before,.main.dragging .split::before{background:var(--agent)}
+.dock{min-height:0;min-width:0;overflow:hidden;container:dock/size;view-transition-name:dock}
+.main.dock-off .dock{visibility:hidden}
+@media (max-width:1099px){
+.main{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) .75rem var(--dockH,42%)}
+.main.dock-off{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) .75rem 0}
+.main.dragging{cursor:row-resize}
+.split{cursor:row-resize}.split::before{width:2.6rem;height:3px}
+}
+@media (max-width:760px){
+body{overflow:auto}
+.app{height:auto;min-height:100dvh}
+.money{grid-column:1/-1}
+.main,.main.dock-off{grid-template-rows:62dvh auto auto}
+.split{display:none}
+.dock{container-type:inline-size;margin-top:var(--gap)}
+.main.dock-off .dock{display:none}
+.dock-in .sec{flex:none}
+.sec .scroll{max-height:60dvh}
+}
+/* Graph stage */
+.stage{position:relative;min-height:0;min-width:0;border-radius:1rem;border:1px solid var(--line);overflow:hidden;container:stage/size;view-transition-name:stage;
 background:radial-gradient(circle at 1px 1px,color-mix(in srgb,var(--line-2) 70%,transparent) 1px,transparent 0) 0 0/22px 22px,linear-gradient(180deg,var(--panel),var(--bg))}
-#graph{display:block;width:100%;height:min(66vh,640px);min-height:420px;cursor:grab}
+#graph{display:block;width:100%;height:100%;cursor:grab;touch-action:none}
 #graph:active{cursor:grabbing}
-.hud{position:absolute;display:flex;gap:8px;align-items:center;flex-wrap:wrap;pointer-events:none}
-.hud>*{pointer-events:auto}
-.hud.tl{top:12px;left:14px;right:400px}
-@media (max-width:900px){.hud.tl{right:14px}.hud.tr{top:auto;bottom:56px}}
-.hud.tr{top:12px;right:14px}
-.hud.bl{bottom:12px;left:14px;right:14px}
-.hud .title{font-family:var(--display);font-weight:700;font-size:16px;letter-spacing:-.01em}
-.hud button{padding:4px 11px;font-size:12px}
-.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted);background:color-mix(in srgb,var(--bg) 80%,transparent);border:1px solid var(--line);border-radius:10px;padding:5px 10px}
-.legend span{display:inline-flex;align-items:center;gap:5px}
-.legend svg{width:12px;height:12px;min-height:0;cursor:default}
-.ticker{font-family:var(--mono);font-size:12px;background:color-mix(in srgb,var(--bg) 85%,transparent);border:1px solid var(--line);border-radius:10px;padding:6px 10px;max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.hud{position:absolute;left:.8rem;right:.8rem;display:flex;gap:.5rem;pointer-events:none;z-index:2}
+.hud *{pointer-events:auto}
+.hud.top{top:.7rem;justify-content:space-between;align-items:flex-start;flex-wrap:wrap}
+.hud.bot{bottom:.7rem;align-items:center}
+.hud .l,.hud .r{display:flex;gap:.45rem;align-items:center;flex-wrap:wrap}
+.hud .r{justify-content:flex-end}
+.hud .title{font-family:var(--display);font-weight:700;font-size:1rem;letter-spacing:-.01em}
+.hud button{padding:.25rem .7rem;font-size:.75rem;background:color-mix(in srgb,var(--bg) 70%,transparent)}
+.hud button.on{background:var(--agent-soft)}
+.legend{display:flex;gap:.7rem;flex-wrap:wrap;font-size:.7rem;color:var(--muted);background:color-mix(in srgb,var(--bg) 80%,transparent);border:1px solid var(--line);border-radius:.6rem;padding:.3rem .6rem}
+.legend span{display:inline-flex;align-items:center;gap:.3rem}
+.legend svg{width:.75rem;height:.75rem;cursor:default}
+@container stage (max-width:52rem){.legend{display:none}}
+.ticker{flex:1;min-width:0;font-family:var(--mono);font-size:.75rem;background:color-mix(in srgb,var(--bg) 85%,transparent);border:1px solid var(--line);border-radius:.6rem;padding:.35rem .6rem;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .ticker b{color:var(--agent);font-weight:600}
-/* graph primitives */
-.link{fill:none;stroke:var(--line-2);stroke-width:1.6}
+.focuschip{flex:none;display:inline-flex;align-items:center;gap:.4rem;font-size:.75rem;font-weight:600;background:var(--agent-soft);border:1px solid var(--agent);color:var(--ink);border-radius:999px;padding:.25rem .75rem}
+.focuschip kbd{font-family:var(--mono);font-size:.68rem;border:1px solid var(--line-2);border-radius:.3rem;padding:0 .3rem;color:var(--muted)}
+/* graph primitives (SVG user units; the zoom fit scales them) */
+.link{fill:none;stroke:var(--line-2);stroke-width:1.6;transition:opacity .3s}
 .link.live{stroke:color-mix(in srgb,var(--agent) 55%,var(--line-2))}
 .link.ghost{stroke-dasharray:3 4;opacity:.45}
 .link.taken{stroke:var(--dec);stroke-width:2}
 .back{fill:none;stroke-width:1.6;stroke-dasharray:5 4;animation:dash 1.2s linear infinite}
 .back.warn{stroke:var(--warn)}.back.bad{stroke:var(--bad)}
-.elabel{font:600 10px var(--sans);fill:var(--dec);paint-order:stroke;stroke:var(--bg);stroke-width:4px;letter-spacing:.04em}
+.bk{transition:opacity .3s}
+.elabel{font:600 10px var(--sans);fill:var(--dec);paint-order:stroke;stroke:var(--bg);stroke-width:4px;letter-spacing:.04em;transition:opacity .3s}
 .elabel.ghost{fill:var(--muted)}
 .blabel{font:600 10px var(--sans);paint-order:stroke;stroke:var(--bg);stroke-width:4px}
-.node{cursor:pointer}
+.node{cursor:pointer;transition:opacity .3s}
 .node .shape{stroke-width:1.8;transition:fill .3s,stroke .3s}
 .node .nm{font:600 12.5px var(--sans);fill:var(--ink);paint-order:stroke;stroke:var(--bg);stroke-width:4px}
 .node .sb{font:400 10.5px var(--mono);fill:var(--muted);paint-order:stroke;stroke:var(--bg);stroke-width:4px}
 .node .inner{font:600 10.5px var(--mono);fill:var(--ink);pointer-events:none}
 .node.ghost{opacity:.4}
 .node.sel .shape{stroke:var(--ink)!important;stroke-width:2.6}
-.ring{fill:none;stroke-width:2;opacity:0}
+.ring{fill:none;stroke-width:2;opacity:0;transform-box:fill-box;transform-origin:center}
 .node.active .ring{animation:ring 1.4s ease-out infinite}
 .packet{filter:url(#glow)}
 .tog circle{fill:var(--bg);stroke:var(--line-2);stroke-width:1.4}
@@ -112,84 +180,106 @@ background:radial-gradient(circle at 1px 1px,color-mix(in srgb,var(--line-2) 70%
 .node.collapsed .tog circle{fill:var(--agent-soft);stroke:var(--agent)}
 .node.collapsed .shape{stroke-dasharray:3 2}
 .node.haskids:hover .tog circle{stroke:var(--agent)}
-/* inspector */
-.insp{position:absolute;top:56px;right:14px;width:min(320px,calc(100% - 28px));background:color-mix(in srgb,var(--panel-2) 96%,transparent);border:1px solid var(--line-2);border-radius:14px;padding:14px;display:grid;gap:10px;box-shadow:0 18px 40px rgba(0,0,0,.45);animation:pop .2s ease both}
-.insp h3{margin:0;font-family:var(--display);font-size:18px;letter-spacing:-.01em;display:flex;justify-content:space-between;gap:8px;align-items:start}
-.insp h3 button{padding:0 8px;font-size:16px;line-height:24px}
-.insp dl{margin:0;display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 12px;font-size:12.5px}
+.node.fade,.link.fade,.elabel.fade{opacity:.35}
+.node.dim,.link.dim,.elabel.dim,.bk.dim{opacity:.08}
+/* hover preview + inspector */
+.hov{position:absolute;left:0;top:0;z-index:4;pointer-events:none;width:min(16rem,70cqw);background:color-mix(in srgb,var(--panel-2) 97%,transparent);border:1px solid var(--line-2);border-radius:.7rem;padding:.55rem .7rem;display:grid;gap:.35rem;font-size:.78rem;box-shadow:0 12px 30px rgba(0,0,0,.45)}
+.hov b{font-size:.88rem}
+.hov .row{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap}
+.hov .hint{color:var(--muted);font-size:.7rem}
+.insp{position:absolute;top:3.4rem;right:.8rem;z-index:3;width:min(21rem,calc(100cqw - 1.6rem));max-height:calc(100cqh - 6.8rem);overflow:auto;background:color-mix(in srgb,var(--panel-2) 96%,transparent);border:1px solid var(--line-2);border-radius:.9rem;padding:.85rem;display:grid;gap:.6rem;box-shadow:0 18px 40px rgba(0,0,0,.45);animation:pop .2s ease both}
+@container stage (max-width:40rem){.insp{top:auto;bottom:3.2rem;left:.6rem;right:.6rem;width:auto;max-height:55cqh}}
+.insp h3{margin:0;font-family:var(--display);font-size:1.1rem;letter-spacing:-.01em;display:flex;justify-content:space-between;gap:.5rem;align-items:start}
+.insp h3 button{padding:0 .5rem;font-size:1rem;line-height:1.5}
+.insp dl{margin:0;display:grid;grid-template-columns:auto minmax(0,1fr);gap:.35rem .75rem;font-size:.8rem}
 .insp dt{color:var(--muted)}
 .insp dd{margin:0;min-width:0;overflow-wrap:anywhere}
-.insp .why{border-left:2px solid var(--dec);padding:6px 10px;background:var(--dec-soft);border-radius:0 8px 8px 0;font-size:12.5px}
-.insp .why.v{border-color:var(--verify);background:var(--verify-soft)}
-.insp .why.b{border-color:var(--bad);background:var(--bad-soft)}
-.tag{display:inline-flex;font-size:11px;font-weight:600;border-radius:999px;padding:1px 8px;border:1px solid var(--line-2)}
-.mono{font-family:var(--mono);font-size:12px}
-/* lower panels */
-.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:14px;align-items:start}
-@media (max-width:1000px){.grid{grid-template-columns:1fr}}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;min-width:0}
-.card>h2{font-family:var(--display);font-size:15px;font-weight:700;margin:0;padding:11px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
-.card>h2 .lbl{font-family:var(--sans)}
-.logbar{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:7px 16px;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted);min-height:36px}
-.logbar button{padding:2px 10px;font-size:11.5px}
-.log{font-family:var(--mono);font-size:12px;height:430px;overflow:auto;padding:10px 16px;display:flex;flex-direction:column;gap:5px}
-.log>div{display:grid;grid-template-columns:42px 120px minmax(0,1fr);gap:8px;animation:pop .25s ease both}
-.log .t{color:var(--muted)}
-.log .a{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.insp .act{display:flex;gap:.4rem;flex-wrap:wrap}
+/* Dock */
+.dock-in{height:100%;display:flex;flex-direction:column;gap:calc(var(--gap)*.7)}
+.sec{container:sec/inline-size;display:grid;grid-template-rows:var(--hdr) 0fr;flex:0 0 0;min-height:var(--hdr);min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:.85rem;overflow:hidden;
+transition:flex-grow .35s var(--ease),grid-template-rows .35s var(--ease)}
+.sec.open{grid-template-rows:var(--hdr) 1fr;flex-grow:var(--g,1)}
+@container dock (min-aspect-ratio:9/4){.dock-in{flex-direction:row}.sec{min-width:12rem;min-height:0}}
+.sh{display:flex;align-items:center;gap:.4rem;padding:0 .5rem 0 .2rem;border-bottom:1px solid transparent;min-width:0;transition:border-color .3s}
+.sec.open .sh{border-bottom-color:var(--line)}
+.sh .tgl{display:flex;align-items:center;gap:.45rem;flex:1;min-width:0;height:100%;padding:0 .5rem;font-family:var(--display);font-weight:700;font-size:.95rem;white-space:nowrap}
+.sh .tgl .lbl{font-family:var(--sans);overflow:hidden;text-overflow:ellipsis}
+.sh .x{display:flex;gap:.3rem;flex:none}
+.sh .x .s{display:none}
+@container sec (max-width:26rem){.sh .tgl .lbl{display:none}.sh .x .l{display:none}.sh .x .s{display:inline}}
+.badge{font-family:var(--mono);font-size:.7rem;font-weight:600;border-radius:999px;padding:0 .45rem;background:var(--bad-soft);color:var(--bad)}
+.sb{min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.scroll{flex:1;min-height:0;overflow:auto;container-type:inline-size;overscroll-behavior:contain}
+.logbar{display:flex;gap:.5rem;align-items:center;justify-content:space-between;padding:.35rem .8rem;border-bottom:1px solid var(--line);font-size:.75rem;color:var(--muted);flex:none}
+.note{font-size:.72rem;color:var(--muted);margin:0;padding:.7rem .8rem}
+/* Log groups */
+.grp{border-bottom:1px solid var(--line)}
+.grp.hit{animation:hit 1.2s ease}
+.gh{width:100%;display:grid;grid-template-columns:1rem 4.4rem minmax(0,1fr) auto 1.8rem;gap:.5rem;align-items:center;padding:.45rem .8rem;color:var(--ink)}
+.gh:hover{background:var(--panel-2)}
+.gid{font-family:var(--mono);font-size:.74rem;color:var(--muted)}
+.gnm{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gct{font-family:var(--mono);font-size:.72rem;color:var(--muted);text-align:right}
+.evs{font-family:var(--mono);font-size:.76rem;display:grid;gap:.3rem;padding:.1rem .8rem .65rem 2.3rem}
+.ev{display:grid;grid-template-columns:2.9rem 8.5rem minmax(0,1fr);gap:.5rem;animation:pop .25s ease both}
+.ev .t{color:var(--muted)}
+.ev .a{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ev .m small{display:block;color:var(--muted);font-size:.66rem}
+@container (max-width:27rem){.ev{grid-template-columns:2.6rem minmax(0,1fr);gap:0 .5rem}.ev .t{grid-row:span 2}.evs{padding-left:1.2rem}.gh{grid-template-columns:1rem 4rem minmax(0,1fr) 1.6rem}.gh .gst{display:none}}
 .a.pl{color:var(--ink)}.a.sp{color:var(--agent)}.a.ch{color:var(--run)}.a.vf{color:var(--verify)}.a.sf{color:var(--ok)}.a.dc{color:var(--dec)}
-.log .m small{display:block;color:var(--muted);font-size:10.5px}
-.log .w{color:var(--warn)}.log .e{color:var(--bad)}.log .o{color:var(--ok)}.log .f{color:var(--money)}.log .vb{color:var(--bad);font-weight:600}
-.idle{color:var(--muted);font-family:var(--sans)}
-.tbl{overflow-x:auto}
-table{border-collapse:collapse;width:100%;min-width:680px}
-th,td{text-align:left;padding:8px 14px;border-bottom:1px solid var(--line);vertical-align:top}
-th{font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:600}
-tbody tr{cursor:pointer;transition:background .15s}
-tbody tr:hover{background:var(--panel-2)}
-tbody tr.sel{background:var(--agent-soft)}
-tr:last-child td{border-bottom:0}
-td.id{font-family:var(--mono);font-size:12px;color:var(--muted);white-space:nowrap}
-.pt{font-weight:600}.pt small{display:block;font-weight:400;color:var(--muted);font-size:12px}
-.res{font-size:12px;color:var(--muted)}
-td.amt{font-family:var(--mono);font-size:12px;text-align:right;white-space:nowrap}
-td.amt.got{color:var(--money)}
-th.r{text-align:right}
-.pill{display:inline-flex;font-size:11.5px;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap}
-.s-queued{background:var(--line);color:var(--muted)}.s-working{background:#18264a;color:var(--run)}.s-retry{background:var(--warn-soft);color:var(--warn)}
-.s-fix{background:var(--verify-soft);color:var(--verify)}.s-done{background:var(--ok-soft);color:var(--ok)}.s-esc{background:var(--bad-soft);color:var(--bad)}
-.code{font-family:var(--mono);font-size:11px;border:1px solid var(--line-2);border-radius:5px;padding:0 5px;color:var(--ink)}
-.esc{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px;padding:14px 16px}
-.ecard{border:1px solid var(--line);border-left:3px solid var(--bad);border-radius:10px;padding:12px 14px;display:grid;gap:8px;background:var(--panel-2);animation:pop .3s ease both}
+.ev .w{color:var(--warn)}.ev .e{color:var(--bad)}.ev .o{color:var(--ok)}.ev .f{color:var(--money)}.ev .vb{color:var(--bad);font-weight:600}
+.res{font-size:.75rem;color:var(--muted)}
+.idle{display:block;padding:.8rem;color:var(--muted);font-size:.82rem}
+/* Case queue */
+.qrow{border-bottom:1px solid var(--line)}
+.qh{width:100%;display:grid;grid-template-columns:1rem 4.6rem minmax(0,1fr) minmax(0,1.25fr) auto 5.2rem;grid-template-areas:"c i p t s v";gap:.3rem .6rem;align-items:center;padding:.5rem .8rem;color:var(--ink)}
+.qh:hover,.qrow.sel .qh{background:var(--panel-2)}
+.qrow.open .qh{background:color-mix(in srgb,var(--agent-soft) 55%,var(--panel))}
+.qh .chev{grid-area:c}.q-id{grid-area:i;font-family:var(--mono);font-size:.74rem;color:var(--muted)}
+.q-pt{grid-area:p;font-weight:600;min-width:0}.q-task{grid-area:t;min-width:0}.q-st{grid-area:s}.q-amt{grid-area:v;font-family:var(--mono);font-size:.75rem;text-align:right;white-space:nowrap}
+.q-amt.got{color:var(--money)}
+.q-pt small,.q-task small{display:block;font-weight:400;color:var(--muted);font-size:.74rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@container (max-width:34rem){.qh{grid-template-columns:1rem 4.2rem minmax(0,1fr) auto;grid-template-areas:"c i p s" ". t t v"}}
+@container (max-width:22rem){.qh{grid-template-columns:1rem minmax(0,1fr) auto;grid-template-areas:"c i s" ". p p" ". t v"}.tl{padding-left:1.2rem}}
+.tl{padding:.3rem .9rem .8rem 2.4rem;display:grid;gap:.6rem}
+.steps{list-style:none;margin:0;padding:0;display:grid}
+.st{display:grid;grid-template-columns:1.1rem minmax(0,1fr);gap:.55rem;position:relative;padding:.3rem 0}
+.st::before{content:"";position:absolute;left:calc(.55rem - 1px);top:1.35rem;bottom:-.3rem;width:2px;background:var(--line)}
+.st:last-child::before{display:none}
+.st>div{display:grid;gap:.2rem;min-width:0}
+.gl{width:.85rem;height:.85rem;margin-top:.22rem;border-radius:50%;border:2px solid var(--c,var(--agent));background:var(--cs,var(--agent-soft));justify-self:center;position:relative;z-index:1}
+.t-d{--c:var(--dec);--cs:var(--dec-soft)}.t-d .gl{border-radius:2px;transform:rotate(45deg) scale(.82)}
+.t-r{--c:var(--warn);--cs:var(--warn-soft)}.t-g{--c:var(--verify);--cs:var(--verify-soft)}.t-b{--c:var(--bad);--cs:var(--bad-soft)}
+.t-o{--c:var(--ok);--cs:var(--ok-soft)}.t-h{--c:var(--bad);--cs:var(--bad-soft)}.t-h .gl{border-radius:2px}
+.st.s-warn{--c:var(--warn);--cs:var(--warn-soft)}.st.s-err{--c:var(--bad);--cs:var(--bad-soft)}
+.st.s-active .gl{animation:pulse 1.2s ease-in-out infinite}
+.st.wait{--c:var(--line-2);--cs:transparent;color:var(--muted)}
+.sn{font-size:.82rem;overflow-wrap:anywhere}
+.sn .mono{color:var(--muted);font-size:.74rem}
+.smeta{font-size:.7rem;color:var(--muted)}
+/* Staff tray */
+.esc{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16rem),1fr));gap:.6rem;padding:.7rem .8rem}
+.ecard{border:1px solid var(--line);border-left:3px solid var(--bad);border-radius:.6rem;padding:.7rem .85rem;display:grid;gap:.45rem;background:var(--panel-2);animation:pop .3s ease both}
 .ecard.ok{border-left-color:var(--ok)}
-.ecard b{font-size:13.5px}.ecard p{margin:0;color:var(--muted);font-size:12.5px}
-.ecard .act{display:flex;gap:6px;flex-wrap:wrap}
-.ecard button{padding:5px 11px;font-size:12px}
-.empty{color:var(--muted);font-size:12.5px;margin:0}
-.note{font-size:12px;color:var(--muted);margin:0}
-/* overlays */
-.veil{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:rgba(3,6,14,.82);backdrop-filter:blur(3px);animation:fadein .4s ease both;padding:16px}
-.veil .inner{text-align:center;display:grid;gap:10px}
-.veil .big{font-family:var(--display);font-size:clamp(56px,10vw,120px);font-weight:800;letter-spacing:-.04em;line-height:1}
-.veil p{margin:0;color:var(--muted);font-size:18px}
+.ecard b{font-size:.85rem}.ecard p{margin:0;color:var(--muted);font-size:.8rem}
+.ecard .act{display:flex;gap:.4rem;flex-wrap:wrap}
+.ecard button{padding:.3rem .7rem;font-size:.75rem}
+/* Overlays */
+.veil{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:rgba(3,6,14,.82);backdrop-filter:blur(3px);animation:fadein .4s ease both;padding:1rem}
+.veil .inner{text-align:center;display:grid;gap:.6rem}
+.veil .big{font-family:var(--display);font-size:clamp(3.5rem,10vw,8rem);font-weight:800;letter-spacing:-.04em;line-height:1}
+.veil p{margin:0;color:var(--muted);font-size:1.1rem}
 .veil.out{animation:fadeout .5s ease forwards}
-.report{width:min(760px,100%);background:linear-gradient(160deg,var(--ok-soft),var(--panel) 55%);border:1px solid color-mix(in srgb,var(--ok) 40%,var(--line));border-radius:20px;padding:26px;display:grid;gap:18px;animation:rise .5s cubic-bezier(.2,.8,.2,1) both;max-height:calc(100vh - 32px);overflow:auto}
-.report h3{font-family:var(--display);font-size:clamp(24px,3.4vw,34px);font-weight:800;letter-spacing:-.02em;margin:0;text-wrap:balance}
-.report .hero{font-family:var(--display);font-size:clamp(48px,8vw,84px);font-weight:800;color:var(--money);letter-spacing:-.04em;line-height:1}
-.report .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px}
-.report .row div{display:grid;gap:2px}
-.report .row b{font-family:var(--display);font-size:26px;font-weight:700}
+.report{width:min(48rem,100%);background:linear-gradient(160deg,var(--ok-soft),var(--panel) 55%);border:1px solid color-mix(in srgb,var(--ok) 40%,var(--line));border-radius:1.25rem;padding:clamp(1rem,2.5vw,1.7rem);display:grid;gap:1.1rem;animation:rise .5s var(--ease) both;max-height:calc(100dvh - 2rem);overflow:auto}
+.report h3{font-family:var(--display);font-size:clamp(1.4rem,1rem + 1.6vw,2.2rem);font-weight:800;letter-spacing:-.02em;margin:0;text-wrap:balance}
+.report .hero{font-family:var(--display);font-size:clamp(3rem,1.5rem + 5vw,5.5rem);font-weight:800;color:var(--money);letter-spacing:-.04em;line-height:1}
+.report .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(8rem,1fr));gap:.75rem}
+.report .row div{display:grid;gap:.1rem}
+.report .row b{font-family:var(--display);font-size:1.6rem;font-weight:700}
 .report p{margin:0;color:var(--muted);max-width:70ch}
-.report .act{display:flex;gap:8px;flex-wrap:wrap}
-.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:15;background:var(--panel-2);border:1px solid var(--bad);border-radius:12px;padding:10px 16px;font-size:13px;max-width:min(92vw,560px);box-shadow:0 10px 30px rgba(0,0,0,.5);animation:pop .25s ease both}
-/* presenter mode: bigger everything for a projector */
-body.present{font-size:15.5px}
-body.present .log{font-size:14px;height:520px}
-body.present .log>div{grid-template-columns:48px 140px minmax(0,1fr)}
-body.present .kpi .n{font-size:36px}
-body.present .money .big{font-size:clamp(44px,5vw,64px)}
-body.present #graph{height:min(74vh,760px)}
-body.present .node .nm{font-size:14.5px}
-body.present .node .sb{font-size:12px}
+.report .act{display:flex;gap:.5rem;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(1.2rem + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:15;background:var(--panel-2);border:1px solid var(--bad);border-radius:.75rem;padding:.6rem 1rem;font-size:.82rem;max-width:min(92vw,36rem);box-shadow:0 10px 30px rgba(0,0,0,.5);animation:pop .25s ease both}
 @keyframes pop{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 @keyframes rise{from{opacity:0;transform:translateY(30px) scale(.98)}to{opacity:1;transform:none}}
 @keyframes fadein{from{opacity:0}to{opacity:1}}
@@ -197,12 +287,15 @@ body.present .node .sb{font-size:12px}
 @keyframes bump{40%{transform:scale(1.05)}}
 @keyframes ring{0%{opacity:.8;transform:scale(1)}100%{opacity:0;transform:scale(1.9)}}
 @keyframes dash{to{stroke-dashoffset:-18}}
-.ring{transform-box:fill-box;transform-origin:center}
-@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+@keyframes pulse{50%{box-shadow:0 0 0 .3rem color-mix(in srgb,var(--c) 25%,transparent)}}
+@keyframes hit{0%{background:var(--agent-soft)}100%{background:transparent}}
+::view-transition-group(*){animation-duration:.35s;animation-timing-function:var(--ease)}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}
+::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation:none!important}}
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="app">
 <header>
 <div class="brand">
 <div class="mark">Rx</div>
@@ -226,18 +319,20 @@ body.present .node .sb{font-size:12px}
 </div>
 </header>
 <section class="strip" aria-label="Run summary">
-<div class="money" id="moneyCard"><span class="lbl">Revenue recovered tonight</span><div class="big num" id="money">$0<span class="c">.00</span></div><div class="brk num" id="moneyBrk">0 claims fixed · 0 auths secured · 0.0 staff hours saved</div></div>
-<div class="kpi ok"><span class="lbl">Resolved</span><span class="n num" id="kDone">0</span></div>
-<div class="kpi bad"><span class="lbl">Needs a human</span><span class="n num" id="kEsc">0</span></div>
-<div class="kpi a"><span class="lbl">Sub-agents</span><span class="n num" id="kKids">0</span></div>
-<div class="kpi d"><span class="lbl">Decisions</span><span class="n num" id="kDec">0</span></div>
-<div class="kpi w"><span class="lbl">Recoveries</span><span class="n num" id="kRetry">0</span></div>
-<div class="kpi v"><span class="lbl">Verifier blocks</span><span class="n num" id="kBlock">0</span></div>
+<button class="tile money" id="moneyCard" data-k="money" aria-expanded="false" aria-controls="drawer"><span class="lbl">Revenue recovered tonight</span><span class="big num" id="money">$0<span class="c">.00</span></span><span class="brk num" id="moneyBrk">0 claims fixed · 0 auths secured · 0.0 staff hours saved</span><span class="hint chev" aria-hidden="true"></span></button>
+<button class="tile ok" data-k="done" aria-expanded="false" aria-controls="drawer"><span class="lbl">Resolved</span><span class="n num" id="kDone">0</span><span class="hint chev" aria-hidden="true"></span></button>
+<button class="tile bad" data-k="esc" aria-expanded="false" aria-controls="drawer"><span class="lbl">Needs a human</span><span class="n num" id="kEsc">0</span><span class="hint chev" aria-hidden="true"></span></button>
+<button class="tile a" data-k="kids" aria-expanded="false" aria-controls="drawer"><span class="lbl">Sub-agents</span><span class="n num" id="kKids">0</span><span class="hint chev" aria-hidden="true"></span></button>
+<button class="tile d" data-k="dec" aria-expanded="false" aria-controls="drawer"><span class="lbl">Decisions</span><span class="n num" id="kDec">0</span><span class="hint chev" aria-hidden="true"></span></button>
+<button class="tile w" data-k="retry" aria-expanded="false" aria-controls="drawer"><span class="lbl">Recoveries</span><span class="n num" id="kRetry">0</span><span class="hint chev" aria-hidden="true"></span></button>
+<button class="tile v" data-k="block" aria-expanded="false" aria-controls="drawer"><span class="lbl">Verifier blocks</span><span class="n num" id="kBlock">0</span><span class="hint chev" aria-hidden="true"></span></button>
 </section>
-<section class="stage" aria-label="Live agent graph">
+<div class="drawer acc" id="drawer"><div class="in"><div class="box" id="drawerBody"></div></div></div>
+<main class="main" id="main">
+<section class="stage" id="stage" aria-label="Live agent graph">
 <svg id="graph" role="img" aria-label="Agent spawning tree"></svg>
-<div class="hud tl">
-<span class="title">Agent graph</span>
+<div class="hud top">
+<div class="l"><span class="title">Agent graph</span>
 <div class="legend" aria-label="Legend">
 <span><svg viewBox="-7 -7 14 14"><polygon points="-6,0 -3,-5.2 3,-5.2 6,0 3,5.2 -3,5.2" fill="none" stroke="#e8eefa" stroke-width="1.6"/></svg>Planner</span>
 <span><svg viewBox="-7 -7 14 14"><circle r="5" fill="#0f3142" stroke="#53cfe6" stroke-width="1.6"/></svg>Sub-agent</span>
@@ -246,31 +341,33 @@ body.present .node .sb{font-size:12px}
 <span><svg viewBox="-7 -7 14 14"><path d="M-5,2 A5,5 0 1,1 2,5" fill="none" stroke="#f59e5b" stroke-width="1.6"/></svg>Recovery</span>
 <span><svg viewBox="-7 -7 14 14"><circle r="5" fill="#10301f" stroke="#5fd49b" stroke-width="1.6"/></svg>Closed</span>
 <span><svg viewBox="-7 -7 14 14"><rect x="-5" y="-5" width="10" height="10" rx="2" fill="#3a171c" stroke="#f4777b" stroke-width="1.6"/></svg>Human</span>
+</div></div>
+<div class="r"><button class="ghost" id="collapseAll">Collapse all</button><button class="ghost" id="expandAll">Expand all</button><button class="ghost on" id="follow" aria-pressed="true">Auto-follow</button><button class="ghost" id="fit">Fit</button><button class="ghost on" id="dockBtn" aria-pressed="true" aria-controls="dock">Dock</button></div>
 </div>
-</div>
-<div class="hud tr"><button class="ghost" id="collapseAll">Collapse all</button><button class="ghost" id="expandAll">Expand all</button><button class="ghost on" id="follow" aria-pressed="true">Auto-follow</button><button class="ghost" id="fit">Fit</button></div>
-<div class="hud bl"><div class="ticker" id="ticker">Idle. Press <b>Run overnight</b>: the Planner splits the backlog across 4 specialists, who spawn sub-agents per task.</div></div>
+<div class="hud bot"><button class="focuschip" id="focusChip" hidden>Focus: <b></b><kbd>Esc</kbd></button><div class="ticker" id="ticker">Idle. Press <b>Run overnight</b>: the Planner splits the backlog across 4 specialists, who spawn sub-agents per task.</div></div>
+<div class="hov" id="hov" hidden></div>
 <div class="insp" id="insp" hidden></div>
 </section>
-<div class="grid">
-<section class="card" aria-label="Live log">
-<h2>Live log <span class="lbl" id="logCount">0 events</span></h2>
-<div class="logbar"><span id="filterTxt">All cases · click a case or node to filter</span><button class="ghost" id="clearFilter" hidden>Show all</button></div>
-<div class="log" id="log" aria-live="polite"><span class="idle">Waiting for the run to start.</span></div>
+<div class="split" id="split" role="separator" tabindex="0" aria-controls="dock" aria-label="Resize dock (double-click to reset)" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="100" aria-valuenow="30" title="Drag to resize · double-click to reset"></div>
+<aside class="dock" id="dock" aria-label="Dock">
+<div class="dock-in">
+<section class="sec" data-sec="log" style="--g:1.15">
+<div class="sh"><button class="plain tgl" aria-expanded="false"><span class="chev"></span>Live log <span class="lbl" id="logCount">0 events</span></button>
+<span class="x"><button class="ghost sm" id="grpCollapse" aria-label="Collapse all groups"><span class="l">Collapse all</span><span class="s">− all</span></button><button class="ghost sm" id="grpExpand" aria-label="Expand all groups"><span class="l">Expand all</span><span class="s">+ all</span></button></span></div>
+<div class="sb"><div class="logbar" id="logbar" hidden><span id="filterTxt"></span><button class="ghost sm" id="clearFilter">Show all</button></div>
+<div class="scroll" id="log"><span class="idle">Waiting for the run to start. Events group by case; the newest case opens on top.</span></div></div>
 </section>
-<section class="card" aria-label="Case queue">
-<h2>Tonight's backlog <span class="lbl" id="caseCount">synthetic</span></h2>
-<div class="tbl"><table>
-<thead><tr><th>Case</th><th>Patient</th><th>Task</th><th>Status</th><th class="r">Value</th></tr></thead>
-<tbody id="rows"></tbody>
-</table></div>
+<section class="sec" data-sec="queue" style="--g:1">
+<div class="sh"><button class="plain tgl" aria-expanded="false"><span class="chev"></span>Tonight's backlog <span class="lbl" id="caseCount">synthetic</span></button></div>
+<div class="sb"><div class="scroll"><div id="rows"></div><p class="note">All patients, payers, IDs and NPIs are fictional. Denials use standard CARC reason codes. This run is scripted in the browser; in live mode every node is a Nemotron call on Crusoe Managed Inference.</p></div></div>
+</section>
+<section class="sec" data-sec="esc" style="--g:.6">
+<div class="sh"><button class="plain tgl" aria-expanded="false"><span class="chev"></span>Needs a human <span class="badge" id="escCount" hidden>0</span></button></div>
+<div class="sb"><div class="scroll"><div class="esc" id="esc"></div></div></div>
 </section>
 </div>
-<section class="card" aria-label="Staff queue">
-<h2>Needs a human <span class="lbl">morning queue for front desk and physicians</span></h2>
-<div class="esc" id="esc"><p class="empty">Nothing here yet. A case lands here only when an agent can't finish it on its own.</p></div>
-</section>
-<p class="note">All patients, payers, IDs and NPIs are fictional. Denials use standard CARC reason codes. This run is scripted in the browser; in live mode every node is a Nemotron call on Crusoe Managed Inference.</p>
+</aside>
+</main>
 </div>
 <div id="overlay"></div>
 <div class="toast" id="toast" hidden></div>
@@ -366,17 +463,25 @@ ev:[["a","EligibilityCheck","PT visits: 12 of 20 used"],
 ];
 const BASE=1000, PAR=4, ROW=40, COL=168;
 const TOTAL=CASES.reduce((a,c)=>a+c.ev.length+1,0);
+const TYPE={goal:"Goal",planner:"Planner",spec:"Specialist agent",case:"Case",a:"Sub-agent",d:"Decision",r:"Recovery loop",g:"Verifier check",b:"Verifier block",o:"Closed",h:"Needs a human"};
 /* ======================= state ======================= */
 const $=s=>document.getElementById(s);
-let speed=1, runId=0, running=false, follow=true, filter=null, selected=null;
-let state={}, handled={}, n, moneyShown=0, moneyRAF=null, ids=0;
+const RM=matchMedia("(prefers-reduced-motion: reduce)"), motion=()=>!RM.matches;
+const store={get(k,d){try{const v=localStorage.getItem("emr."+k);return v===null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem("emr."+k,JSON.stringify(v))}catch(e){}}};
+function vt(fn){if(!document.startViewTransition||!motion()){fn();return}document.startViewTransition(fn)}
+let speed=1, runId=0, running=false, follow=true, filter=null, selected=null, focusId=null, kpiOpen=null;
+let state={}, handled={}, n, moneyShown=0, moneyRAF=null, ids=0, groups={};
 let rootData, nodesById={}, backs=[], visible=new Set();
 const FOLD=new Set(["planner","spec","case","d"]);
 const canFold=d=>FOLD.has(d.type)&&d.children.length>0;
 function countDesc(d){return d.children.reduce((a,c)=>a+1+countDesc(c),0)}
 function isShown(d){let p=nodesById[d.parentId];while(p){if(p.collapsed)return false;p=nodesById[p.parentId]}return true}
+function subtree(id){const s=new Set(),walk=d=>{s.add(d.id);d.children.forEach(walk)};if(nodesById[id])walk(nodesById[id]);return s}
+function ancestors(id){const s=new Set();let d=nodesById[id];while(d&&d.parentId){d=nodesById[d.parentId];s.add(d.id)}return s}
 function setAll(c){Object.values(nodesById).forEach(d=>{if(canFold(d)&&d.type!=="planner")d.collapsed=c});render()}
 const caseNode={}, specNode={};
+const modelFor=d=>d.type==="planner"?MODEL.planner:(d.type==="g"||d.type==="b")?MODEL.verifier:["a","d","r","spec"].includes(d.type)?MODEL.worker:"—";
+function statePill(d){const [t,k]={active:["Running","s-working"],done:["Finished","s-done"],warn:["Failed, recovering","s-retry"],err:["Blocked by data","s-esc"],human:["Waiting for staff","s-esc"]}[d.status]||[d.status,"s-queued"];return `<span class="pill ${k}">${t}</span>`}
 /* ======================= graph setup ======================= */
 const svg=d3.select("#graph");
 const defs=svg.append("defs");
@@ -385,7 +490,7 @@ f.append("feGaussianBlur").attr("stdDeviation","3").attr("result","b");
 const fm=f.append("feMerge");fm.append("feMergeNode").attr("in","b");fm.append("feMergeNode").attr("in","SourceGraphic");
 const view=svg.append("g");
 const gLinks=view.append("g"), gBacks=view.append("g"), gElab=view.append("g"), gNodes=view.append("g"), gPackets=view.append("g");
-const zoom=d3.zoom().scaleExtent([.25,2.5]).on("zoom",e=>{view.attr("transform",e.transform);if(e.sourceEvent){setFollow(false)}});
+const zoom=d3.zoom().scaleExtent([.2,3]).on("zoom",e=>{view.attr("transform",e.transform);if(e.sourceEvent){setFollow(false)}});
 svg.call(zoom).on("dblclick.zoom",null);
 const linkGen=d3.linkHorizontal().x(d=>d.y).y(d=>d.x);
 const tree=d3.tree().nodeSize([ROW,COL]).separation((a,b)=>a.parent===b.parent?1:1.25);
@@ -422,10 +527,12 @@ function labelX(d){return d.type==="goal"?70:d.type==="spec"?50:d.type==="case"?
 let scheduled=false;
 function render(){if(scheduled)return;scheduled=true;requestAnimationFrame(()=>{scheduled=false;draw()})}
 function draw(){
-const T=550/speed;
+const T=motion()?550/speed:0;
 const root=d3.hierarchy(rootData,d=>d.collapsed?null:d.children);tree(root);
 const all=root.descendants();
 visible=new Set(all.map(h=>h.data.id));
+const F=focusId?subtree(focusId):null, A=focusId?ancestors(focusId):null;
+const dim=id=>!F||F.has(id)?"":A.has(id)?" fade":" dim";
 const anc=id=>{let d=nodesById[id];while(d&&!visible.has(d.id))d=nodesById[d.parentId];return d||rootData};
 all.forEach(h=>{h.data.x=h.x;h.data.y=h.y});
 const pos=id=>{const d=nodesById[id];return d?{x:d.x,y:d.y}:{x:0,y:0}};
@@ -435,22 +542,26 @@ const links=root.links();
 const ls=gLinks.selectAll("path.link").data(links,l=>l.target.data.id);
 ls.enter().append("path").attr("class",l=>linkClass(l))
 .attr("d",l=>{const s=startOf(l.target);return linkGen({source:s,target:s})})
-.merge(ls).attr("class",l=>linkClass(l)).transition().duration(T).attr("d",l=>linkGen({source:l.source,target:l.target}));
+.merge(ls).attr("class",l=>linkClass(l)+dim(l.target.data.id)).transition().duration(T).attr("d",l=>linkGen({source:l.source,target:l.target}));
 ls.exit().transition().duration(T).attr("d",l=>{const a=anc(l.target.data.id);const q={x:a.x,y:a.y};return linkGen({source:q,target:q})}).style("opacity",0).remove();
 /* edge labels on decision branches */
 const el=links.filter(l=>l.target.data.edge);
 const es=gElab.selectAll("text").data(el,l=>l.target.data.id);
-es.enter().append("text").attr("class",l=>"elabel"+(l.target.data.ghost?" ghost":"")).attr("text-anchor","middle").attr("opacity",0)
+es.enter().append("text").attr("text-anchor","middle").attr("opacity",0)
 .text(l=>l.target.data.edge)
 .attr("x",l=>(l.source.y+l.target.y)/2+6).attr("y",l=>(l.source.x+l.target.x)/2-5)
-.merge(es).transition().duration(T).attr("opacity",1)
+.merge(es).attr("class",l=>"elabel"+(l.target.data.ghost?" ghost":"")+dim(l.target.data.id)).transition().duration(T).attr("opacity",1)
 .attr("x",l=>(l.source.y+l.target.y)/2+6).attr("y",l=>(l.source.x+l.target.x)/2-5);
 es.exit().transition().duration(T/2).attr("opacity",0).remove();
 /* nodes */
 const ns=gNodes.selectAll("g.node").data(all,h=>h.data.id);
 const ne=ns.enter().append("g").attr("class","node")
 .attr("transform",h=>{const s=startOf(h);return `translate(${s.y},${s.x}) scale(.2)`})
-.on("click",(e,h)=>{e.stopPropagation();const d=h.data;if(canFold(d))d.collapsed=!d.collapsed;select(d.id)});
+.on("click",(e,h)=>{e.stopPropagation();const d=h.data;if(canFold(d))d.collapsed=!d.collapsed;select(d.id)})
+.on("dblclick",(e,h)=>{e.stopPropagation();if(h.data.caseId)focusCase(h.data.caseId)})
+.on("pointerenter",(e,h)=>{if(e.pointerType==="mouse")showHover(h.data,e)})
+.on("pointermove",e=>{if(e.pointerType==="mouse")moveHover(e)})
+.on("pointerleave",hideHover);
 ne.each(function(h){
 const g=d3.select(this),d=h.data,p=shapePath(d.type);
 if(d.type==="goal"){g.append("rect").attr("class","shape").attr("x",-64).attr("y",-17).attr("width",128).attr("height",34).attr("rx",17)}
@@ -474,7 +585,7 @@ else if(d.type==="spec"||d.type==="case"){g.append("text").attr("class","sb").at
 else{g.append("text").attr("class","nm").attr("x",lx).attr("y",-1).text(d.name);g.append("text").attr("class","sb").attr("x",lx).attr("y",12).text(d.sub)}
 });
 const nm=ne.merge(ns);
-nm.attr("class",h=>{const d=h.data;return "node"+(d.ghost?" ghost":"")+(d.status==="active"?" active":"")+(selected===d.id?" sel":"")+(canFold(d)?" haskids":"")+(d.collapsed?" collapsed":"")})
+nm.attr("class",h=>{const d=h.data;return "node"+(d.ghost?" ghost":"")+(d.status==="active"?" active":"")+(selected===d.id?" sel":"")+(canFold(d)?" haskids":"")+(d.collapsed?" collapsed":"")+dim(d.id)})
 .each(function(h){const d=h.data,g=d3.select(this);let t=g.select("g.tog");
 if(!canFold(d)){t.remove();return}
 if(t.empty()){t=g.append("g").attr("class","tog");t.append("circle").attr("r",7.5);t.append("text").attr("text-anchor","middle").attr("dy","3.3")}
@@ -486,10 +597,10 @@ nm.transition().duration(T).attr("transform",h=>`translate(${h.y},${h.x}) scale(
 ns.exit().transition().duration(T).attr("transform",h=>{const a=anc(h.data.id);return `translate(${a.y},${a.x}) scale(.2)`}).style("opacity",0).remove();
 /* back-edges (recovery loops, Verifier send-backs) */
 const bs=gBacks.selectAll("g.bk").data(backs.filter(b=>visible.has(b.from)&&visible.has(b.to)),b=>b.key);
-const be=bs.enter().append("g").attr("class","bk").attr("opacity",0);
+const be=bs.enter().append("g").attr("opacity",0);
 be.append("path").attr("class",b=>"back "+b.cls).attr("marker-end",b=>`url(#arr-${b.cls})`);
 be.append("text").attr("class","blabel").attr("text-anchor","middle").attr("fill",b=>b.cls==="bad"?css("--bad"):css("--warn")).text(b=>b.label);
-const bm=be.merge(bs);
+const bm=be.merge(bs).attr("class",b=>"bk"+dim(b.from));
 bm.transition().duration(T).attr("opacity",1);
 bm.select("path").transition().duration(T).attr("d",b=>backPath(b));
 bm.select("text").transition().duration(T).attr("x",b=>{const a=pos(b.from),c=pos(b.to);return (a.y+c.y)/2}).attr("y",b=>{const a=pos(b.from),c=pos(b.to);return Math.min(a.x,c.x)-arcH(b)+4});
@@ -504,17 +615,21 @@ const x1=a.y,y1=a.x-10,x2=c.y,y2=c.x-11;return `M${x1},${y1} C${x1},${y1-h} ${x2
 ["warn","bad"].forEach(k=>defs.append("marker").attr("id","arr-"+k).attr("viewBox","0 0 10 10").attr("refX",8).attr("refY",5).attr("markerWidth",7).attr("markerHeight",7).attr("orient","auto-start-reverse")
 .append("path").attr("d","M0,0 L10,5 L0,10 z").attr("fill",css(k==="warn"?"--warn":"--bad")));
 function fit(T=600){
-const ds=Object.values(nodesById).filter(d=>visible.has(d.id)&&d.x!==undefined);if(!ds.length)return;
-const minX=d3.min(ds,d=>d.x)-70,maxX=d3.max(ds,d=>d.x)+40,minY=d3.min(ds,d=>d.y)-80,maxY=d3.max(ds,d=>d.y)+190;
-const el=svg.node(),W=el.clientWidth,H=el.clientHeight;
-const padTop=60,padBot=48;
-const k=Math.min(1.25,W/(maxY-minY),(H-padTop-padBot)/(maxX-minX));
+let ds=Object.values(nodesById).filter(d=>visible.has(d.id)&&d.x!==undefined);
+if(focusId){const F=subtree(focusId);ds=ds.filter(d=>F.has(d.id))}
+if(!ds.length)return;
+const el=svg.node(),W=el.clientWidth,H=el.clientHeight;if(!W||!H)return;
+const minX=d3.min(ds,d=>d.x)-(focusId?50:70),maxX=d3.max(ds,d=>d.x)+40,minY=d3.min(ds,d=>d.y)-80,maxY=d3.max(ds,d=>d.y)+190;
+const padTop=document.querySelector(".hud.top").offsetHeight+18,padBot=document.querySelector(".hud.bot").offsetHeight+18;
+const k=Math.max(.2,Math.min(focusId?1.6:1.25,W/(maxY-minY),(H-padTop-padBot)/(maxX-minX)));
 const tx=(W-(maxY-minY)*k)/2-minY*k, ty=padTop+((H-padTop-padBot)-(maxX-minX)*k)/2-minX*k;
-svg.transition().duration(T).call(zoom.transform,d3.zoomIdentity.translate(tx,ty).scale(k));
+const t=d3.zoomIdentity.translate(tx,ty).scale(k);
+if(T>0)svg.transition().duration(T).call(zoom.transform,t);else{svg.interrupt();svg.call(zoom.transform,t)}
 }
 function packet(from,to,color){
-if(!from||!to)return;
+if(!from||!to||!motion())return;
 if(!isShown(to))return;
+if(focusId&&!subtree(focusId).has(to.id))return;
 const delay=520/speed,dur=650/speed;
 setTimeout(()=>{
 const p=gPackets.append("path").attr("d",linkGen({source:{x:from.x,y:from.y},target:{x:to.x,y:to.y}})).attr("fill","none").attr("stroke","none");
@@ -524,65 +639,172 @@ c.transition().duration(dur).ease(d3.easeCubicInOut).attrTween("transform",()=>t
 .on("end",()=>{c.remove();p.remove()});
 },delay);
 }
-/* ======================= inspector ======================= */
+/* ======================= hover preview ======================= */
+function showHover(d,e){
+if(d.type==="goal")return;
+const h=$("hov");
+h.innerHTML=`<div class="row"><span class="tag">${TYPE[d.type]}</span>${d.status&&!d.ghost?statePill(d):""}</div>
+<b>${esc(d.type==="case"?d.name+" · "+(CASES.find(c=>c.id===d.caseId)?.pt||""):d.name)}</b>
+<div class="mono">${esc(d.type==="d"?d.name+" → "+d.answer:d.sub)}</div>
+${modelFor(d)!=="—"?`<div class="hint">${modelFor(d)}</div>`:""}
+${d.why?`<div class="why${d.type==="g"?" v":d.type==="b"?" b":d.type==="r"?" w":""}">${esc(d.why.length>140?d.why.slice(0,138)+"…":d.why)}</div>`:""}
+<div class="hint">Click to inspect${canFold(d)?" · fold":""}${d.caseId?" · double-click to focus":""}</div>`;
+h.hidden=false;moveHover(e);
+}
+function moveHover(e){
+const h=$("hov");if(h.hidden)return;const r=$("stage").getBoundingClientRect();
+let x=e.clientX-r.left+16,y=e.clientY-r.top+16;
+if(x+h.offsetWidth>r.width-8)x=e.clientX-r.left-h.offsetWidth-16;
+if(y+h.offsetHeight>r.height-8)y=Math.max(8,r.height-h.offsetHeight-8);
+h.style.transform=`translate(${Math.max(8,x)}px,${y}px)`;
+}
+function hideHover(){$("hov").hidden=true}
+/* ======================= inspector + focus ======================= */
 function select(id){
-selected=id;const d=nodesById[id];render();
+selected=id;const d=nodesById[id];render();hideHover();
 if(!d){$("insp").hidden=true;return}
-const typeName={goal:"Goal",planner:"Planner",spec:"Specialist agent",case:"Case",a:"Sub-agent",d:"Decision",r:"Recovery loop",g:"Verifier check",b:"Verifier block",o:"Closed",h:"Needs a human"}[d.type];
-const model=d.type==="planner"?MODEL.planner:(d.type==="g"||d.type==="b")?MODEL.verifier:(["a","d","r","spec"].includes(d.type))?MODEL.worker:"—";
 const c=d.caseId?CASES.find(x=>x.id===d.caseId):null;
-const whyCls=d.type==="g"?"why v":d.type==="b"?"why b":"why";
+const whyCls=d.type==="g"?"why v":d.type==="b"?"why b":d.type==="r"?"why w":"why";
 $("insp").innerHTML=`<h3><span>${esc(d.type==="case"?d.name+" · "+c.pt:d.name)}</span><button class="ghost" id="inspX" aria-label="Close">×</button></h3>
-<dl><dt>Type</dt><dd><span class="tag">${typeName}</span></dd>
+<dl><dt>Type</dt><dd><span class="tag">${TYPE[d.type]}</span></dd>
 ${c?`<dt>Case</dt><dd class="mono">${c.id} · ${esc(c.type)}</dd>`:""}
-<dt>Model</dt><dd class="mono">${model}</dd>
+<dt>Model</dt><dd class="mono">${modelFor(d)}</dd>
 <dt>${d.type==="d"?"Answer":"Output"}</dt><dd>${esc(d.type==="d"?d.answer:d.sub)}</dd>
 ${d.type==="case"?`<dt>Task</dt><dd>${c.detail}</dd>`:""}
-${d.status?`<dt>State</dt><dd>${(([t,k])=>`<span class="pill ${k}">${t}</span>`)({active:["Running","s-working"],done:["Finished","s-done"],warn:["Failed, recovering","s-retry"],err:["Blocked by data","s-esc"],human:["Waiting for staff","s-esc"]}[d.status]||[d.status,"s-queued"])}</dd>`:""}</dl>
+${d.status?`<dt>State</dt><dd>${statePill(d)}</dd>`:""}</dl>
 ${d.why?`<div class="${whyCls}">${esc(d.why)}</div>`:""}
 ${canFold(d)?`<div class="why">${d.collapsed?`Branch folded: ${countDesc(d)} nodes hidden. Click the node again to expand.`:"Click the node again to fold this branch."}</div>`:""}
-${d.ghost?`<div class="why">Branch not taken. Shown so you can see the alternative the agent ruled out.</div>`:""}`;
+${d.ghost?`<div class="why">Branch not taken. Shown so you can see the alternative the agent ruled out.</div>`:""}
+${c?`<div class="act">${focusId===caseNode[c.id]?.id?`<button class="ghost sm" data-unfocus>Exit focus</button>`:`<button class="sm" data-focus="${c.id}">Focus case</button>`}<button class="ghost sm" data-open="${c.id}">Open in backlog</button></div>`:""}`;
 $("insp").hidden=false;$("inspX").onclick=()=>{selected=null;$("insp").hidden=true;render()};
-if(d.caseId){filter=d.caseId;applyFilter()}
+if(c){const g=groups[c.id];if(g){setGroup(g,true);flash(g.el)}}
 }
 svg.on("click",()=>{if(selected){selected=null;$("insp").hidden=true;render()}});
+function focusCase(cid){
+const cn=caseNode[cid];if(!cn){toast(`${cid} hasn't started yet. It will appear in the graph once the Planner delegates it.`);return}
+let p=cn;while(p){p.collapsed=false;p=nodesById[p.parentId]}
+focusId=cn.id;filter=cid;
+$("focusChip").hidden=false;$("focusChip").querySelector("b").textContent=cid;
+setFollow(true);applyFilter();render();
+if(selected&&nodesById[selected]?.caseId===cid)select(selected);
+}
+function exitFocus(){
+if(!focusId)return;focusId=null;filter=null;$("focusChip").hidden=true;
+setFollow(true);applyFilter();render();if(selected)select(selected);
+}
 /* ======================= UI helpers ======================= */
 function esc(s){return String(s??"").replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]))}
 function money(v){return "$"+v.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}
 function pill(s){const m={queued:["Queued","s-queued"],working:["Working","s-working"],retry:["Recovering","s-retry"],fix:["Fixing after review","s-fix"],done:["Resolved","s-done"],esc:["Needs a human","s-esc"]}[s];return `<span class="pill ${m[1]}">${m[0]}</span>`}
-function renderRows(){
-$("rows").innerHTML=CASES.map(c=>{const st=state[c.id]||"queued",got=st==="done"&&c.value>0;
-return `<tr data-id="${c.id}" tabindex="0" class="${filter===c.id?"sel":""}"><td class="id">${c.id}</td><td class="pt">${esc(c.pt)}<small>DOB ${c.dob}</small></td>
-<td>${c.type}<div class="res">${c.detail}</div></td><td>${pill(st)}</td>
-<td class="amt ${got?"got":""}">${c.value?money(c.value)+`<div class="res">${c.vk}</div>`:'<span class="res">—</span>'}</td></tr>`}).join("");
+function flash(el){el.classList.remove("hit");void el.offsetWidth;el.classList.add("hit")}
+/* case queue: built once, updated in place so open rows keep their state */
+function buildRows(){
+$("rows").innerHTML=CASES.map(c=>`<div class="qrow" data-id="${c.id}">
+<button class="plain qh" aria-expanded="false" aria-controls="tl-${c.id}"><span class="chev"></span><span class="q-id">${c.id}</span>
+<span class="q-pt">${esc(c.pt)}<small>DOB ${c.dob}</small></span><span class="q-task">${c.type}<small>${c.detail}</small></span>
+<span class="q-st"></span><span class="q-amt"></span></button>
+<div class="acc" id="tl-${c.id}"><div class="in"><div class="tl"></div></div></div></div>`).join("");
+}
+const rowEl=id=>$("rows").querySelector(`.qrow[data-id="${id}"]`);
+function updateRow(c){
+const r=rowEl(c.id);if(!r)return;const st=state[c.id]||"queued",got=st==="done"&&c.value>0;
+r.querySelector(".q-st").innerHTML=pill(st);
+const a=r.querySelector(".q-amt");a.classList.toggle("got",got);a.innerHTML=c.value?money(c.value)+`<small class="res" style="display:block">${c.vk}</small>`:'<span class="res">—</span>';
+r.classList.toggle("sel",filter===c.id);
+if(r.classList.contains("open"))r.querySelector(".tl").innerHTML=timeline(c);
+const g=groups[c.id];if(g)g.el.querySelector(".gst").innerHTML=pill(st);
+}
+function renderRows(){CASES.forEach(updateRow)}
+function timeline(c){
+const ns=Object.values(nodesById).filter(d=>d.caseId===c.id&&d.type!=="case"&&!d.ghost).sort((a,b)=>a.id.slice(1)-b.id.slice(1));
+const st=state[c.id]||"queued";
+const act=`<div class="insp-act" style="display:flex;gap:.4rem;flex-wrap:wrap">${caseNode[c.id]?`<button class="sm" data-focus="${c.id}">Focus in graph</button>`:""}${c.esc&&st==="esc"?`<span class="res">Waiting in the staff tray.</span>`:""}</div>`;
+if(!ns.length)return `<p class="empty">${st==="working"?"Delegated. First sub-agent is starting.":running?"Queued: waits for a free lane.":"Not run yet. Press Run overnight."}</p>`;
+return `<ol class="steps">${ns.map(d=>`<li class="st t-${d.type} s-${d.status}"><span class="gl"></span><div>
+<div class="sn"><b>${esc(d.type==="d"?d.name:d.name)}</b> <span class="mono">${esc(d.type==="d"?"→ "+d.answer:d.sub)}</span></div>
+<div class="smeta">${TYPE[d.type]}${modelFor(d)!=="—"?` · <span class="mono">${modelFor(d)}</span>`:""}</div>
+${d.why&&d.type!=="o"?`<div class="why${d.type==="g"?" v":d.type==="b"?" b":d.type==="r"?" w":""}">${esc(d.why)}</div>`:""}</div></li>`).join("")}
+${st==="working"||st==="retry"||st==="fix"?`<li class="st wait"><span class="gl"></span><div><div class="sn">Working…</div></div></li>`:""}</ol>${act}`;
+}
+function toggleRow(id,open){
+const r=rowEl(id);if(!r)return;open=open??!r.classList.contains("open");
+if(open)r.querySelector(".tl").innerHTML=timeline(CASES.find(c=>c.id===id));
+r.classList.toggle("open",open);r.querySelector(".qh").setAttribute("aria-expanded",open);
 }
 function renderStats(){
 $("kDone").textContent=n.done;$("kEsc").textContent=n.esc;$("kKids").textContent=n.kids;$("kDec").textContent=n.dec;$("kRetry").textContent=n.retry;$("kBlock").textContent=n.block;
+$("escCount").textContent=n.esc;$("escCount").hidden=!n.esc;
 const pct=Math.min(100,n.steps/TOTAL*100);$("track").style.width=pct+"%";
 const m=22*60+Math.round(pct/100*440);$("clock").textContent=String(Math.floor(m/60)%24).padStart(2,"0")+":"+String(m%60).padStart(2,"0");
 $("moneyBrk").textContent=`${n.claims} claim${n.claims===1?"":"s"} fixed · ${n.auths} auth${n.auths===1?"":"s"} secured · ${(n.hrs/60).toFixed(1)} staff hours saved`;
+renderDrawer();
 }
 function tweenMoney(){
-cancelAnimationFrame(moneyRAF);const from=moneyShown,to=n.money,t0=performance.now(),dur=1000/speed;
+cancelAnimationFrame(moneyRAF);const from=moneyShown,to=n.money,t0=performance.now(),dur=motion()?1000/speed:1;
 const card=$("moneyCard");card.classList.remove("bump");void card.offsetWidth;card.classList.add("bump");
 const step=t=>{const k=Math.min(1,(t-t0)/dur),e=1-Math.pow(1-k,3);moneyShown=from+(to-from)*e;setMoney(moneyShown);if(k<1)moneyRAF=requestAnimationFrame(step)};
 moneyRAF=requestAnimationFrame(step);
 }
 function setMoney(v){const s=money(v),i=s.lastIndexOf(".");$("money").innerHTML=`${s.slice(0,i)}<span class="c">${s.slice(i)}</span>`}
+/* ======================= KPI drawer ======================= */
+const KPI={money:"Revenue recovered",done:"Resolved cases",esc:"Needs a human",kids:"Sub-agents run",dec:"Decisions",retry:"Recoveries",block:"Verifier blocks"};
+function kpiItems(k){
+const byType=t=>Object.values(nodesById).filter(d=>d.type===t&&!d.ghost&&d.caseId);
+switch(k){
+case"money":return CASES.filter(c=>state[c.id]==="done"&&c.value>0).map(c=>({cid:c.id,text:`${money(c.value)} · ${c.short}`,extra:c.vk==="auth"?"auth secured":"claim recovered"}));
+case"done":return CASES.filter(c=>state[c.id]==="done").map(c=>{const o=Object.values(nodesById).filter(d=>d.caseId===c.id&&d.type==="o"&&!d.ghost).pop();return {cid:c.id,text:c.short,extra:o?`${o.name} · ${o.sub}`:"handled by staff"}});
+case"esc":return CASES.filter(c=>state[c.id]==="esc").map(c=>({cid:c.id,text:c.result||c.short,extra:c.esc}));
+case"kids":return byType("a").map(d=>({cid:d.caseId,text:d.name,extra:d.sub}));
+case"dec":return byType("d").map(d=>({cid:d.caseId,text:`${d.name} → ${d.answer}`,extra:d.why}));
+case"retry":return byType("r").map(d=>({cid:d.caseId,text:d.name,extra:d.sub}));
+case"block":return byType("b").map(d=>({cid:d.caseId,text:d.sub,extra:d.why}));
+}
+return [];
+}
+function renderDrawer(){
+if(!kpiOpen)return;
+const items=kpiItems(kpiOpen),old=$("drawerBody").querySelector(".dl"),top=old?old.scrollTop:0;
+$("drawerBody").innerHTML=`<div class="dh"><b>${KPI[kpiOpen]}</b><span class="lbl">${items.length} item${items.length===1?"":"s"} · click one to focus it</span><button class="ghost sm" data-kpi-close aria-label="Close">×</button></div>
+${items.length?`<div class="dl">${items.map(it=>`<button class="di" data-focus="${it.cid}"><span class="mono">${it.cid}</span><span>${esc(it.text)}</span>${it.extra?`<small>${esc(it.extra)}</small>`:""}</button>`).join("")}</div>`
+:`<p class="empty">Nothing here yet. ${running?"Still running.":"Press Run overnight."}</p>`}`;
+const nw=$("drawerBody").querySelector(".dl");if(nw)nw.scrollTop=top;
+}
+function toggleKpi(k){
+kpiOpen=kpiOpen===k?null:k;
+document.querySelectorAll(".tile").forEach(t=>t.setAttribute("aria-expanded",t.dataset.k===kpiOpen));
+renderDrawer();$("drawer").classList.toggle("open",!!kpiOpen);
+}
+/* ======================= grouped log ======================= */
+function setGroup(g,open){g.el.classList.toggle("open",open);g.el.querySelector(".gh").setAttribute("aria-expanded",open)}
+function groupFor(cid){
+const key=cid||"_run";if(groups[key])return groups[key];
+const c=cid?CASES.find(x=>x.id===cid):null;
+const el=document.createElement("div");el.className="grp";el.dataset.case=cid||"";
+el.innerHTML=`<button class="plain gh" aria-expanded="false"><span class="chev"></span><span class="gid">${cid||"RUN"}</span><span class="gnm">${c?esc(c.short):"Planner · whole run"}</span><span class="gst"></span><span class="gct">0</span></button><div class="acc"><div class="in"><div class="evs"></div></div></div>`;
+const g={el,count:0,user:false,key};groups[key]=g;
+const run=groups._run;
+if(run&&run!==g)run.el.after(el);else $("log").prepend(el);
+if(filter&&cid!==filter)el.hidden=true;
+el.querySelector(".gh").onclick=()=>{g.user=true;setGroup(g,!el.classList.contains("open"))};
+requestAnimationFrame(()=>setGroup(g,true));
+return g;
+}
+function autoClose(cid){const g=groups[cid];if(g&&!g.user&&filter!==cid)setTimeout(()=>{if(!g.user&&groups[cid]===g)setGroup(g,false)},1600/speed)}
 function log(actor,msg,cls,caseId,role){
-const l=$("log");if(!n.events)l.innerHTML="";n.events++;
+if(!n.events)$("log").innerHTML="";n.events++;
+const g=groupFor(caseId);
 const model={pl:MODEL.planner,vf:MODEL.verifier,sp:MODEL.worker,ch:MODEL.worker,dc:MODEL.worker}[role]||"";
-const d=document.createElement("div");d.dataset.case=caseId||"";
-d.innerHTML=`<span class="t">${$("clock").textContent}</span><span class="a ${role}" title="${esc(actor)}">${esc(actor)}</span><span class="m ${cls||""}">${caseId?`<span class="res">${caseId}</span> `:""}${msg}${model?`<small>${model}</small>`:""}</span>`;
-if(filter&&caseId!==filter)d.hidden=true;
-l.appendChild(d);if(!filter)l.scrollTop=l.scrollHeight;
+const d=document.createElement("div");d.className="ev";
+d.innerHTML=`<span class="t">${$("clock").textContent}</span><span class="a ${role}" title="${esc(actor)}">${esc(actor)}</span><span class="m ${cls||""}">${msg}${model?`<small>${model}</small>`:""}</span>`;
+g.el.querySelector(".evs").appendChild(d);g.count++;g.el.querySelector(".gct").textContent=g.count;
+if(caseId)g.el.querySelector(".gst").innerHTML=pill(state[caseId]||"working");
 $("logCount").textContent=n.events+" events";
 $("ticker").innerHTML=`<b>${esc(actor)}</b> ${caseId?caseId+" · ":""}${msg.replace(/<[^>]+>/g,"")}`;
 }
 function applyFilter(){
-[...$("log").children].forEach(d=>{if(d.dataset)d.hidden=!!filter&&d.dataset.case!==filter});
-$("filterTxt").textContent=filter?`Showing ${filter} only`:"All cases · click a case or node to filter";
-$("clearFilter").hidden=!filter;renderRows();
+Object.values(groups).forEach(g=>{g.el.hidden=!!filter&&g.key!==filter;if(filter&&g.key===filter)setGroup(g,true)});
+$("filterTxt").textContent=filter?`Showing ${filter} only`:"";
+$("logbar").hidden=!filter;renderRows();
 }
 function toast(msg){$("toast").textContent=msg;$("toast").hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>$("toast").hidden=true,3600)}
 const sleep=(ms,id)=>new Promise((res,rej)=>setTimeout(()=>runId===id?res():rej("stop"),ms/speed));
@@ -597,7 +819,7 @@ rootData._planner=planner;
 async function runCase(c,id){
 const spec=specNode[c.ag];spec.status="active";
 const cn=mk("case",c.id,c.short,spec,{caseId:c.id});caseNode[c.id]=cn;
-state[c.id]="working";renderRows();render();packet(spec,cn,css("--agent"));
+state[c.id]="working";updateRow(c);render();packet(spec,cn,css("--agent"));
 log("Planner",`Delegated ${c.type.toLowerCase()} → ${c.ag}`,"",c.id,"pl");
 n.steps++;renderStats();
 let tail=cn, pendingEdge=null; const made=[];
@@ -643,8 +865,9 @@ log("Planner",`Closed: ${name} · ${sub}`,c.value?"f":"o",c.id,"pl");
 state[c.id]="esc";n.esc++;cn.status="human";renderEsc();
 log("Planner",`Routed to staff: ${name}`,"e",c.id,"pl");
 }
+autoClose(c.id);
 }
-n.steps++;renderRows();renderStats();render();
+n.steps++;updateRow(c);renderStats();render();
 }
 if(!Object.values(caseNode).some(x=>x.status==="active"&&nodesById[x.parentId]===spec))spec.status="done";
 render();
@@ -672,7 +895,7 @@ setTimeout(()=>{const v=$("veil");if(v)v.classList.add("out");setTimeout(()=>{if
 function finish(id){
 if(runId!==id)return;running=false;n.steps=TOTAL;renderStats();
 rootData._planner.status="done";Object.values(specNode).forEach(s=>s.status="done");render();
-log("Planner",`Backlog cleared: ${n.done} resolved, ${n.esc} for staff, ${n.block} bad output stopped by the Verifier.`,"o","","pl");
+log("Planner",`Backlog cleared: ${n.done} resolved, ${n.esc} for staff, ${n.block} bad outputs stopped by the Verifier.`,"o","","pl");
 $("run").disabled=false;$("run").textContent="Run again";$("clockSub").textContent="report ready";
 $("overlay").innerHTML=`<div class="veil" role="dialog" aria-label="Morning report"><div class="report">
 <span class="lbl">Morning report · ${$("clock").textContent} · Sunrise Family Medicine</span>
@@ -693,27 +916,28 @@ $("replay").onclick=()=>{$("overlay").innerHTML="";run()};
 }
 function hardReset(){
 runId++;running=false;$("overlay").innerHTML="";
-state={};filter=null;selected=null;$("insp").hidden=true;
-Object.keys(caseNode).forEach(k=>delete caseNode[k]);
+state={};filter=null;selected=null;focusId=null;$("insp").hidden=true;$("focusChip").hidden=true;hideHover();
+Object.keys(caseNode).forEach(k=>delete caseNode[k]);groups={};
 n={done:0,esc:0,kids:0,dec:0,retry:0,block:0,hrs:0,money:0,claims:0,auths:0,steps:0,events:0};
 cancelAnimationFrame(moneyRAF);moneyShown=0;setMoney(0);
 gLinks.selectAll("*").remove();gNodes.selectAll("*").remove();gElab.selectAll("*").remove();gBacks.selectAll("*").remove();gPackets.selectAll("*").remove();
 buildBase();
-$("log").innerHTML=`<span class="idle">Waiting for the run to start.</span>`;$("logCount").textContent="0 events";
+$("log").innerHTML=`<span class="idle">Waiting for the run to start. Events group by case; the newest case opens on top.</span>`;$("logCount").textContent="0 events";
 $("ticker").innerHTML=`Idle. Press <b>Run overnight</b>: the Planner splits ${CASES.length} cases across 4 specialists, who spawn sub-agents per task.`;
 $("run").disabled=false;$("run").textContent="Run overnight";$("clockSub").textContent="staff leaving";$("modeChip").textContent="DEMO_MODE · scripted";
-$("caseCount").textContent=`${CASES.length} cases · synthetic`;setFollow(true);renderRows();renderStats();renderEsc();applyFilter();render();
+$("caseCount").textContent=`${CASES.length} cases · synthetic`;
+setFollow(true);renderRows();renderStats();renderEsc();applyFilter();render();
 }
 /* ======================= staff tray ======================= */
 function renderEsc(){
 const list=CASES.filter(c=>state[c.id]==="esc"||handled[c.id]);
 $("esc").innerHTML=list.length?list.map(c=>handled[c.id]
 ?`<div class="ecard ok"><b>${c.id} · ${esc(c.pt)}</b><p>${handled[c.id]}</p></div>`
-:`<div class="ecard"><b>${c.id} · ${esc(c.pt)}</b><p>${c.esc}</p><div class="act"><button data-id="${c.id}" data-a="fix">Fixed, send back to agents</button><button class="ghost" data-id="${c.id}" data-a="done">Mark handled</button></div></div>`).join("")
+:`<div class="ecard"><b>${c.id} · ${esc(c.pt)}</b><p>${c.esc}</p><div class="act"><button data-id="${c.id}" data-a="fix">Fixed, send back to agents</button><button class="ghost" data-id="${c.id}" data-a="done">Mark handled</button><button class="ghost" data-focus="${c.id}">Focus</button></div></div>`).join("")
 :`<p class="empty">Nothing here yet. A case lands here only when an agent can't finish it on its own.</p>`;
 }
 $("esc").addEventListener("click",e=>{
-const b=e.target.closest("button");if(!b)return;const id=b.dataset.id,c=CASES.find(x=>x.id===id),cn=caseNode[id];
+const b=e.target.closest("button[data-a]");if(!b)return;const id=b.dataset.id,c=CASES.find(x=>x.id===id),cn=caseNode[id];
 if(b.dataset.a==="done"){handled[id]="Handled by staff.";log("Staff","Marked handled","o",id,"sf")}
 else{
 handled[id]="Sent back after the staff fix. Re-run passed the Verifier.";
@@ -729,20 +953,75 @@ n.hrs+=Math.round(c.mins*.7);
 state[id]="done";n.esc--;n.done++;if(cn)cn.status="done";
 renderRows();renderStats();renderEsc();render();
 });
+/* ======================= dock + splitter ======================= */
+const main=$("main"),split=$("split");
+const SIDE=matchMedia("(min-width: 1100px)"),PHONE=matchMedia("(max-width: 760px)");
+let dockW=store.get("dockW",null),dockH=store.get("dockH",null),dockOpen=store.get("dockOpen",true);
+const secOpen=Object.assign({log:true,queue:true,esc:true},store.get("sec",{}));
+function limits(){const r=main.getBoundingClientRect();return SIDE.matches?[260,Math.max(300,r.width-380)]:[110,Math.max(150,r.height-180)]}
+const clampDock=v=>{const [lo,hi]=limits();return Math.round(Math.min(hi,Math.max(lo,v)))};
+function applyDock(){
+main.classList.toggle("dock-off",!dockOpen);
+dockW==null?main.style.removeProperty("--dockW"):main.style.setProperty("--dockW",dockW+"px");
+dockH==null?main.style.removeProperty("--dockH"):main.style.setProperty("--dockH",dockH+"px");
+$("dock").inert=!dockOpen;
+$("dockBtn").classList.toggle("on",dockOpen);$("dockBtn").setAttribute("aria-pressed",dockOpen);
+split.setAttribute("aria-orientation",SIDE.matches?"vertical":"horizontal");
+const r=main.getBoundingClientRect(),d=$("dock").getBoundingClientRect();
+split.setAttribute("aria-valuenow",dockOpen?Math.round(100*(SIDE.matches?d.width/r.width:d.height/r.height)):0);
+}
+function setDock(open){dockOpen=open;store.set("dockOpen",open);vt(applyDock)}
+split.addEventListener("pointerdown",e=>{
+if(PHONE.matches||e.button!==0)return;e.preventDefault();split.setPointerCapture(e.pointerId);
+dockOpen=true;main.classList.add("dragging");
+const move=ev=>{const r=main.getBoundingClientRect();if(SIDE.matches)dockW=clampDock(r.right-ev.clientX-split.offsetWidth/2);else dockH=clampDock(r.bottom-ev.clientY-split.offsetHeight/2);applyDock()};
+const up=()=>{split.removeEventListener("pointermove",move);split.removeEventListener("pointerup",up);split.removeEventListener("pointercancel",up);
+main.classList.remove("dragging");store.set("dockW",dockW);store.set("dockH",dockH);store.set("dockOpen",true)};
+split.addEventListener("pointermove",move);split.addEventListener("pointerup",up);split.addEventListener("pointercancel",up);
+});
+split.addEventListener("dblclick",()=>{dockW=null;dockH=null;dockOpen=true;store.set("dockW",null);store.set("dockH",null);store.set("dockOpen",true);vt(applyDock)});
+split.addEventListener("keydown",e=>{
+const d=$("dock").getBoundingClientRect(),cur=SIDE.matches?d.width:d.height,[lo,hi]=limits(),step=e.shiftKey?80:24;
+const grow=SIDE.matches?{ArrowLeft:1,ArrowRight:-1}:{ArrowUp:1,ArrowDown:-1};
+let v=null;if(e.key in grow)v=cur+grow[e.key]*step;else if(e.key==="Home")v=lo;else if(e.key==="End")v=hi;
+else if(e.key==="Enter"){e.preventDefault();setDock(!dockOpen);return}
+if(v===null)return;e.preventDefault();dockOpen=true;if(SIDE.matches)dockW=clampDock(v);else dockH=clampDock(v);
+applyDock();store.set("dockW",dockW);store.set("dockH",dockH);store.set("dockOpen",true);
+});
+SIDE.addEventListener("change",applyDock);PHONE.addEventListener("change",applyDock);
+$("dockBtn").onclick=()=>setDock(!dockOpen);
+function setSec(sec,open){const s=document.querySelector(`.sec[data-sec="${sec}"]`);s.classList.toggle("open",open);s.querySelector(".tgl").setAttribute("aria-expanded",open);secOpen[sec]=open;store.set("sec",secOpen)}
+document.querySelectorAll(".sec").forEach(s=>{const k=s.dataset.sec;setSec(k,secOpen[k]);s.querySelector(".tgl").onclick=()=>setSec(k,!s.classList.contains("open"))});
+/* graph follows its container */
+let roRAF=0;
+new ResizeObserver(()=>{cancelAnimationFrame(roRAF);roRAF=requestAnimationFrame(()=>{if(follow)fit(main.classList.contains("dragging")||!motion()?0:250)})}).observe($("graph"));
 /* ======================= controls ======================= */
 function setFollow(v){follow=v;$("follow").classList.toggle("on",v);$("follow").setAttribute("aria-pressed",v)}
 $("run").onclick=run;
 $("reset").onclick=()=>{Object.keys(handled).forEach(k=>delete handled[k]);hardReset()};
 $("speed").onclick=()=>{speed=speed===1?3:speed===3?8:1;$("speed").textContent=`Speed ${speed}×`};
-$("present").onclick=()=>{const on=document.body.classList.toggle("present");$("present").classList.toggle("on",on);$("present").setAttribute("aria-pressed",on);setTimeout(()=>fit(300),50)};
+$("present").onclick=()=>vt(()=>{const on=document.documentElement.classList.toggle("present");$("present").classList.toggle("on",on);$("present").setAttribute("aria-pressed",on)});
 $("follow").onclick=()=>{setFollow(!follow);if(follow)fit()};
-$("fit").onclick=()=>fit();
-$("collapseAll").onclick=()=>{setAll(true)};
-$("expandAll").onclick=()=>{setAll(false)};
-$("rows").addEventListener("click",e=>{const tr=e.target.closest("tr");if(!tr)return;filter=filter===tr.dataset.id?null:tr.dataset.id;applyFilter();if(filter&&caseNode[filter])select(caseNode[filter].id)});
-$("rows").addEventListener("keydown",e=>{if(e.key!=="Enter"&&e.key!==" ")return;const tr=e.target.closest("tr");if(!tr)return;e.preventDefault();filter=filter===tr.dataset.id?null:tr.dataset.id;applyFilter()});
-$("clearFilter").onclick=()=>{filter=null;applyFilter()};
-window.addEventListener("resize",()=>{if(follow)fit(200)});
+$("fit").onclick=()=>{setFollow(true);fit()};
+$("collapseAll").onclick=()=>setAll(true);
+$("expandAll").onclick=()=>setAll(false);
+$("focusChip").onclick=exitFocus;
+$("clearFilter").onclick=exitFocus;
+$("grpCollapse").onclick=()=>Object.values(groups).forEach(g=>{g.user=true;setGroup(g,false)});
+$("grpExpand").onclick=()=>Object.values(groups).forEach(g=>{g.user=true;setGroup(g,true)});
+$("rows").addEventListener("click",e=>{const h=e.target.closest(".qh");if(h)toggleRow(h.parentElement.dataset.id)});
+document.querySelectorAll(".tile").forEach(t=>t.onclick=()=>toggleKpi(t.dataset.k));
+document.addEventListener("click",e=>{
+const f=e.target.closest("[data-focus]");if(f){focusCase(f.dataset.focus);return}
+if(e.target.closest("[data-unfocus]")){exitFocus();return}
+if(e.target.closest("[data-kpi-close]")){toggleKpi(kpiOpen);return}
+const o=e.target.closest("[data-open]");if(o){if(!dockOpen)setDock(true);setSec("queue",true);toggleRow(o.dataset.open,true);rowEl(o.dataset.open)?.scrollIntoView({block:"nearest",behavior:motion()?"smooth":"auto"})}
+});
+document.addEventListener("keydown",e=>{
+if(e.key!=="Escape"||document.querySelector(".veil"))return;
+if(focusId)exitFocus();else if(!$("insp").hidden){selected=null;$("insp").hidden=true;render()}else if(kpiOpen)toggleKpi(kpiOpen);
+});
+buildRows();applyDock();
 hardReset();
 </script>
 </body>
