@@ -249,7 +249,7 @@ body.present .node .sb{font-size:12px}
 </div>
 </div>
 <div class="hud tr"><button class="ghost" id="collapseAll">Collapse all</button><button class="ghost" id="expandAll">Expand all</button><button class="ghost on" id="follow" aria-pressed="true">Auto-follow</button><button class="ghost" id="fit">Fit</button></div>
-<div class="hud bl"><div class="ticker" id="ticker">Idle. Press <b>Run overnight</b>: the Planner splits 12 cases across 4 specialists, who spawn sub-agents per task.</div></div>
+<div class="hud bl"><div class="ticker" id="ticker">Idle. Press <b>Run overnight</b>: the Planner splits the backlog across 4 specialists, who spawn sub-agents per task.</div></div>
 <div class="insp" id="insp" hidden></div>
 </section>
 <div class="grid">
@@ -259,7 +259,7 @@ body.present .node .sb{font-size:12px}
 <div class="log" id="log" aria-live="polite"><span class="idle">Waiting for the run to start.</span></div>
 </section>
 <section class="card" aria-label="Case queue">
-<h2>Tonight's backlog <span class="lbl">12 cases · synthetic</span></h2>
+<h2>Tonight's backlog <span class="lbl" id="caseCount">synthetic</span></h2>
 <div class="tbl"><table>
 <thead><tr><th>Case</th><th>Patient</th><th>Task</th><th>Status</th><th class="r">Value</th></tr></thead>
 <tbody id="rows"></tbody>
@@ -328,8 +328,43 @@ ev:[["a","RecordImporter","2 outside PDFs"],["a","MedReconciler","1 duplicate re
 {id:"RF-4412",pt:"Frank Wilson",dob:"1952-10-15",type:"Referral",ag:"Referral",detail:"Orthopedics · Blue Shield PPO",mins:25,value:0,short:"Wilson · ortho",
 ev:[["a","RecordPacker","X-ray + visit notes"],["a","FaxSender","line busy","warn"],["r","Switch channel","e-referral portal ✓"],
 ["g","Verifier","delivery confirmed"],["o","Referral sent","Peninsula Ortho"]]},
+{id:"PA-1045",pt:"Priya Shah",dob:"1984-06-12",type:"Prior auth",ag:"PriorAuth",detail:"Dupixent 300 mg · Aetna PPO",mins:50,value:3180,vk:"auth",short:"Shah · Dupixent",
+ev:[["a","EvidenceGatherer","BSA 15% · 2 topicals failed"],
+["d","Meets step-therapy rule?","Yes",{why:"Moderate-to-severe atopic dermatitis ✓ · topical steroid failed ✓ · tacrolimus failed ✓",ghost:["No","request more evidence"]}],
+["a","FormFiller","PA form · 600 mg q2w"],
+["b","Verifier","dose doesn't match order",{why:"Order in the chart is 300 mg every 2 weeks after the loading dose. Form listed 600 mg maintenance. Sent back to FormFiller.",back:1,toast:"Verifier blocked PA-1045 before it went out: dose on the form didn't match the order. Sending it back."}],
+["a","FormFiller","300 mg q2w corrected"],["a","PortalSubmitter","submitted to Aetna"],["g","Verifier","dose matches order"],["o","Approved","auth AET-20418"]]},
+{id:"CP-2204",pt:"Evelyn Brooks",dob:"1947-01-08",type:"Chart prep",ag:"ChartPrep",detail:"Diabetes follow-up · 11:00",mins:20,value:0,short:"Brooks · diabetes",
+ev:[["a","LabSummarizer","K+ 6.1 mmol/L (critical)","err"],["a","CareGapScanner","retinal + foot exam due","flag"],
+["d","Urgent finding?","Yes",{why:"Potassium 6.1 mmol/L is above the critical threshold. A physician must review before the visit.",ghost:["No","summary only"]}],
+["h","Flag for Dr. Patel","critical lab review"]],
+esc:"Potassium came back at 6.1 mmol/L (critical). Dr. Patel should review and decide whether to call the patient in early.",result:"Critical lab needs physician"},
+{id:"DN-3310",pt:"Marcus Johnson",dob:"1975-10-29",type:"Claim denial",ag:"Denials",detail:"<span class=code>CO-29</span> timely filing · Humana",mins:35,value:318.75,vk:"claim",short:"Johnson · CO-29",
+ev:[["a","ERAReader","CARC CO-29 · filing limit passed"],["a","ClearinghouseSearch","original sent 03/02 · accepted"],
+["d","Proof of timely filing?","Yes",{why:"Clearinghouse acceptance report dated 03/02 is inside Humana's 90-day window",ghost:["No","write off"]}],
+["a","AppealDrafter","acceptance report attached"],["g","Verifier","dates match ledger"],["o","Appeal filed","$318.75"]]},
+{id:"RF-4413",pt:"Kevin O'Brien",dob:"1958-04-03",type:"Referral",ag:"Referral",detail:"Gastroenterology · Medicare",mins:30,value:0,short:"O'Brien · GI",
+ev:[["a","NPISearch","4 GI practices ≤ 15 mi"],["a","SchedulingCheck","first slot 11/28"],
+["d","Seen within 30 days?","No",{why:"Positive FIT test: guideline is colonoscopy within 30 days. First slot is 46 days out.",ghost:["Yes","book first slot"]}],
+["a","NPISearch","next practice · slot 10/22"],["a","RecordPacker","FIT result + 2 visit notes"],["g","Verifier","records match referral"],["o","Referral sent","Golden Gate GI"]]},
+{id:"DN-3311",pt:"Rosa Martinez",dob:"1969-08-17",type:"Claim denial",ag:"Denials",detail:"<span class=code>CO-4</span> modifier · Medi-Cal",mins:30,value:96.20,vk:"claim",short:"Martinez · CO-4",
+ev:[["a","ERAReader","CARC CO-4 · modifier 59 on 97110"],["a","CodingChecker","NCCI pair 97140 + 97110"],
+["d","Separate session documented?","Yes",{why:"Therapy note shows manual therapy and exercise in separate time blocks",ghost:["No","accept denial"]}],
+["a","ClaimFixer","59 → XS modifier"],["a","ClearinghouseSubmit","rejected: payer ID mismatch","warn"],["r","Retry with Medi-Cal ID","accepted"],
+["g","Verifier","coding matches note"],["o","Resubmitted","$96.20"]]},
+{id:"PA-1046",pt:"Nora Ahmed",dob:"1980-12-01",type:"Prior auth",ag:"PriorAuth",detail:"Adalimumab · Cigna",mins:45,value:2460,vk:"auth",short:"Ahmed · adalimumab",
+ev:[["a","EvidenceGatherer","RA · methotrexate 6 mo"],
+["d","Meets payer criteria?","Yes",{why:"Rheumatoid arthritis diagnosis ✓ · methotrexate ≥ 3 months ✓ · active disease score ✓",ghost:["No","request more evidence"]}],
+["a","FormularyCheck","switch to preferred biosimilar"],["a","PortalSubmitter","submitted to Cigna"],["g","Verifier","drug matches formulary"],["o","Approved","auth CIG-88124"]]},
+{id:"CP-2205",pt:"Peter Schmidt",dob:"1950-03-27",type:"Chart prep",ag:"ChartPrep",detail:"Pre-op clearance · 13:30",mins:25,value:0,short:"Schmidt · pre-op",
+ev:[["a","RecordImporter","surgeon request + ECG"],["a","LabSummarizer","CBC, BMP still pending","warn"],["r","Poll lab interface","results posted 23:41"],
+["g","Verifier","checklist matches chart"],["o","Summary ready","pre-op checklist complete"]]},
+{id:"RF-4414",pt:"Yuki Tanaka",dob:"1992-09-14",type:"Referral",ag:"Referral",detail:"Physical therapy · Anthem",mins:20,value:0,short:"Tanaka · PT",
+ev:[["a","EligibilityCheck","PT visits: 12 of 20 used"],
+["d","Visits left on plan?","Yes",{why:"8 visits remain this plan year; the PT order asks for 6",ghost:["No","ask for exception"]}],
+["a","RecordPacker","PT order + knee MRI"],["a","FaxSender","sent to Bayview PT"],["g","Verifier","delivery confirmed"],["o","Referral sent","Bayview PT"]]},
 ];
-const BASE=1000, PAR=3, ROW=40, COL=168;
+const BASE=1000, PAR=4, ROW=40, COL=168;
 const TOTAL=CASES.reduce((a,c)=>a+c.ev.length+1,0);
 /* ======================= state ======================= */
 const $=s=>document.getElementById(s);
@@ -554,7 +589,7 @@ const sleep=(ms,id)=>new Promise((res,rej)=>setTimeout(()=>runId===id?res():rej(
 /* ======================= run ======================= */
 function buildBase(){
 ids=0;nodesById={};backs=[];
-rootData=mk("goal","Overnight backlog","12 cases · clear by 08:00",null,{status:"done"});
+rootData=mk("goal","Overnight backlog",`${CASES.length} cases · clear by 08:00`,null,{status:"done"});
 const planner=mk("planner","Planner","delegates · tracks progress",rootData,{status:"done"});
 SPECS.forEach(([s,sub])=>{specNode[s]=mk("spec",s,sub,planner,{status:"done"})});
 rootData._planner=planner;
@@ -590,8 +625,8 @@ log(c.ag,`${name}: ${sub}`,"o",c.id,"sp");packet(tail,nd,css("--warn"));tail=nd;
 const nd=mk("b",name,sub,tail,{caseId:c.id,status:"active",why:x.why});
 const target=made[x.back];if(target)backs.push({key:nd.id,from:nd.id,to:target.id,cls:"bad",label:"sent back"});
 state[c.id]="fix";n.block++;
-log("Verifier",`Blocked: ${sub}. Sent back to NPISearch.`,"vb",c.id,"vf");
-toast(`Verifier blocked ${c.id} before it went out: wrong doctor's NPI. Sending it back.`);
+log("Verifier",`Blocked: ${sub}. Sent back to ${target?target.name:"agent"}.`,"vb",c.id,"vf");
+toast(x.toast||`Verifier blocked ${c.id} before it went out: wrong doctor's NPI. Sending it back.`);
 packet(tail,nd,css("--bad"));tail=nd;
 }else if(t==="g"){
 const nd=mk("g",name,sub,tail,{caseId:c.id,edge:pendingEdge,status:"active",why:"Checked against the chart before closing: "+sub});pendingEdge=null;
@@ -650,7 +685,7 @@ $("overlay").innerHTML=`<div class="veil" role="dialog" aria-label="Morning repo
 <div><span class="lbl">Decisions</span><b class="num">${n.dec}</b></div>
 <div><span class="lbl">Bad outputs stopped</span><b class="num">${n.block}</b></div>
 </div>
-<p>Every closed case passed the Verifier before it went out. ${n.retry} failures (a portal timeout, an empty lab result, a busy fax line) were recovered without anyone touching them.</p>
+<p>Every closed case passed the Verifier before it went out. ${n.retry} failures (portal timeouts, empty or pending labs, a busy fax line, a clearinghouse rejection) were recovered without anyone touching them.</p>
 <div class="act"><button id="closeReport">See the graph</button><button class="ghost" id="replay">Run again</button></div>
 </div></div>`;
 $("closeReport").onclick=()=>{$("overlay").innerHTML="";setFollow(true);fit()};
@@ -665,9 +700,9 @@ cancelAnimationFrame(moneyRAF);moneyShown=0;setMoney(0);
 gLinks.selectAll("*").remove();gNodes.selectAll("*").remove();gElab.selectAll("*").remove();gBacks.selectAll("*").remove();gPackets.selectAll("*").remove();
 buildBase();
 $("log").innerHTML=`<span class="idle">Waiting for the run to start.</span>`;$("logCount").textContent="0 events";
-$("ticker").innerHTML=`Idle. Press <b>Run overnight</b>: the Planner splits 12 cases across 4 specialists, who spawn sub-agents per task.`;
+$("ticker").innerHTML=`Idle. Press <b>Run overnight</b>: the Planner splits ${CASES.length} cases across 4 specialists, who spawn sub-agents per task.`;
 $("run").disabled=false;$("run").textContent="Run overnight";$("clockSub").textContent="staff leaving";$("modeChip").textContent="DEMO_MODE · scripted";
-setFollow(true);renderRows();renderStats();renderEsc();applyFilter();render();
+$("caseCount").textContent=`${CASES.length} cases · synthetic`;setFollow(true);renderRows();renderStats();renderEsc();applyFilter();render();
 }
 /* ======================= staff tray ======================= */
 function renderEsc(){
@@ -684,9 +719,9 @@ else{
 handled[id]="Sent back after the staff fix. Re-run passed the Verifier.";
 log("Staff","Fixed and sent back to agents","o",id,"sf");
 if(cn){let tail=cn;while(tail.children.filter(x=>!x.ghost).length)tail=tail.children.filter(x=>!x.ghost).slice(-1)[0];
-const re=mk("a",c.ag==="PriorAuth"?"PortalSubmitter":"Referral","re-run with staff fix",tail,{caseId:id,edge:"staff fix",status:"done"});
+const re=mk("a",{PriorAuth:"PortalSubmitter",Referral:"Referral",Denials:"ClaimFixer",ChartPrep:"LabSummarizer"}[c.ag],"re-run with staff fix",tail,{caseId:id,edge:"staff fix",status:"done"});
 const g=mk("g","Verifier","matches updated chart",re,{caseId:id,status:"done",why:"Re-checked after the staff fix."});
-mk("o",c.ag==="PriorAuth"?"Submitted":"Referral sent","after staff fix",g,{caseId:id,status:"done"});
+mk("o",{PriorAuth:"Submitted",Referral:"Referral sent",Denials:"Resubmitted",ChartPrep:"Summary ready"}[c.ag],"after staff fix",g,{caseId:id,status:"done"});
 packet(tail,re,css("--ok"))}
 log(c.ag,"Re-ran with the staff fix → submitted","o",id,"sp");log("Verifier","✓ matches updated chart","o",id,"vf");
 n.hrs+=Math.round(c.mins*.7);
