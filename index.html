@@ -503,7 +503,7 @@ ${c?`<dt>Case</dt><dd class="mono">${c.id} · ${esc(c.type)}</dd>`:""}
 <dt>Model</dt><dd class="mono">${model}</dd>
 <dt>${d.type==="d"?"Answer":"Output"}</dt><dd>${esc(d.type==="d"?d.answer:d.sub)}</dd>
 ${d.type==="case"?`<dt>Task</dt><dd>${c.detail}</dd>`:""}
-${d.status?`<dt>State</dt><dd>${{active:"Running",done:"Finished",warn:"Failed, recovering",err:"Blocked by data",human:"Waiting for staff"}[d.status]||d.status}</dd>`:""}</dl>
+${d.status?`<dt>State</dt><dd>${(([t,k])=>`<span class="pill ${k}">${t}</span>`)({active:["Running","s-working"],done:["Finished","s-done"],warn:["Failed, recovering","s-retry"],err:["Blocked by data","s-esc"],human:["Waiting for staff","s-esc"]}[d.status]||[d.status,"s-queued"])}</dd>`:""}</dl>
 ${d.why?`<div class="${whyCls}">${esc(d.why)}</div>`:""}
 ${canFold(d)?`<div class="why">${d.collapsed?`Branch folded: ${countDesc(d)} nodes hidden. Click the node again to expand.`:"Click the node again to fold this branch."}</div>`:""}
 ${d.ghost?`<div class="why">Branch not taken. Shown so you can see the alternative the agent ruled out.</div>`:""}`;
