@@ -1,0 +1,714 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>EMR Copilot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+/* Layout: night-shift control room. Slim header → revenue + KPI strip → full-width live agent graph (hero, with inspector) → log beside case queue → staff tray.
+Dark-only on purpose: the story happens after the clinic closes. */
+:root{
+--bg:#070d1a; --bg-glow:#112347; --panel:#0e1729; --panel-2:#132036; --line:#1f2e4a; --line-2:#2a3d60;
+--ink:#e8eefa; --muted:#8798b6;
+--agent:#53cfe6; --agent-soft:#0f3142;   /* sub-agents, handoffs */
+--dec:#dce6ff;  --dec-soft:#1c2846;      /* decisions */
+--verify:#b49dff; --verify-soft:#251e45; /* Verifier */
+--money:#f6c867; --money-soft:#33290f;   /* revenue only */
+--ok:#5fd49b; --ok-soft:#10301f; --warn:#f59e5b; --warn-soft:#38220f; --bad:#f4777b; --bad-soft:#3a171c; --run:#8fb2ff;
+--display:"Bricolage Grotesque","Avenir Next",system-ui,sans-serif;
+--sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+--mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{background:var(--bg)}
+body{color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.45;min-height:100vh;
+background:radial-gradient(1100px 500px at 75% -160px,var(--bg-glow),transparent 70%),var(--bg)}
+.wrap{max-width:1440px;margin:0 auto;padding-inline:16px;padding-block:16px 48px;display:grid;gap:14px}
+button{font:inherit;cursor:pointer;border-radius:9px;border:1px solid var(--agent);background:var(--agent);color:#03202b;font-weight:600;padding:8px 15px;transition:filter .12s,transform .12s}
+button:hover:not(:disabled){filter:brightness(1.1)}
+button:active:not(:disabled){transform:translateY(1px)}
+button:disabled{opacity:.45;cursor:default}
+button:focus-visible,tr:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.ghost{background:transparent;color:var(--agent)}
+.ghost.on{background:var(--agent-soft)}
+.lbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.11em;color:var(--muted);font-weight:600}
+.num{font-variant-numeric:tabular-nums}
+/* Header */
+header{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justify-content:space-between}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.mark{width:40px;height:40px;border-radius:11px;flex:none;display:grid;place-items:center;background:linear-gradient(140deg,var(--agent),#2b6fc0);color:#03141c;font-family:var(--display);font-weight:800;font-size:17px}
+h1{font-family:var(--display);font-size:26px;font-weight:800;margin:0;letter-spacing:-.02em;line-height:1.05}
+.sub{color:var(--muted);font-size:12.5px;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;border:1px solid var(--line-2);border-radius:999px;padding:2px 9px;color:var(--muted);background:var(--panel)}
+.chip.c{color:var(--agent);border-color:color-mix(in srgb,var(--agent) 40%,transparent)}
+.chip.d{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 40%,transparent)}
+.right{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.clock{display:grid;gap:4px;min-width:170px}
+.clock .t{font-family:var(--display);font-size:32px;font-weight:700;line-height:1;letter-spacing:-.02em}
+.clock .t small{font-size:12.5px;color:var(--muted);font-family:var(--sans);font-weight:500;letter-spacing:0;margin-left:6px}
+.track{height:4px;border-radius:2px;background:var(--line);overflow:hidden}
+.track i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--agent),var(--verify));transition:width .25s linear}
+.ctrls{display:flex;gap:8px;flex-wrap:wrap}
+/* KPI strip */
+.strip{display:grid;grid-template-columns:minmax(260px,1.2fr) repeat(6,minmax(0,1fr));gap:10px}
+@media (max-width:1100px){.strip{grid-template-columns:repeat(3,minmax(0,1fr))}.money{grid-column:1/-1}}
+@media (max-width:520px){.strip{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.money{border-radius:14px;padding:12px 16px;border:1px solid color-mix(in srgb,var(--money) 32%,var(--line));background:linear-gradient(160deg,var(--money-soft),var(--panel) 70%);display:grid;gap:2px;align-content:center}
+.money .lbl{color:var(--money)}
+.money .big{font-family:var(--display);font-weight:800;font-size:clamp(34px,4vw,48px);line-height:1;letter-spacing:-.03em;color:var(--money)}
+.money .big .c{font-size:.5em;opacity:.7}
+.money .brk{font-size:11.5px;color:var(--muted)}
+.money.bump .big{animation:bump .45s ease}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:grid;gap:2px;align-content:center}
+.kpi .n{font-family:var(--display);font-size:28px;font-weight:700;line-height:1.05;letter-spacing:-.02em}
+.kpi.ok .n{color:var(--ok)}.kpi.bad .n{color:var(--bad)}.kpi.a .n{color:var(--agent)}.kpi.d .n{color:var(--dec)}.kpi.w .n{color:var(--warn)}.kpi.v .n{color:var(--verify)}
+/* Graph hero */
+.stage{position:relative;border-radius:16px;border:1px solid var(--line);overflow:hidden;
+background:radial-gradient(circle at 1px 1px,color-mix(in srgb,var(--line-2) 70%,transparent) 1px,transparent 0) 0 0/22px 22px,linear-gradient(180deg,var(--panel),var(--bg))}
+#graph{display:block;width:100%;height:min(66vh,640px);min-height:420px;cursor:grab}
+#graph:active{cursor:grabbing}
+.hud{position:absolute;display:flex;gap:8px;align-items:center;flex-wrap:wrap;pointer-events:none}
+.hud>*{pointer-events:auto}
+.hud.tl{top:12px;left:14px;right:400px}
+@media (max-width:900px){.hud.tl{right:14px}.hud.tr{top:auto;bottom:56px}}
+.hud.tr{top:12px;right:14px}
+.hud.bl{bottom:12px;left:14px;right:14px}
+.hud .title{font-family:var(--display);font-weight:700;font-size:16px;letter-spacing:-.01em}
+.hud button{padding:4px 11px;font-size:12px}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted);background:color-mix(in srgb,var(--bg) 80%,transparent);border:1px solid var(--line);border-radius:10px;padding:5px 10px}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend svg{width:12px;height:12px;min-height:0;cursor:default}
+.ticker{font-family:var(--mono);font-size:12px;background:color-mix(in srgb,var(--bg) 85%,transparent);border:1px solid var(--line);border-radius:10px;padding:6px 10px;max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.ticker b{color:var(--agent);font-weight:600}
+/* graph primitives */
+.link{fill:none;stroke:var(--line-2);stroke-width:1.6}
+.link.live{stroke:color-mix(in srgb,var(--agent) 55%,var(--line-2))}
+.link.ghost{stroke-dasharray:3 4;opacity:.45}
+.link.taken{stroke:var(--dec);stroke-width:2}
+.back{fill:none;stroke-width:1.6;stroke-dasharray:5 4;animation:dash 1.2s linear infinite}
+.back.warn{stroke:var(--warn)}.back.bad{stroke:var(--bad)}
+.elabel{font:600 10px var(--sans);fill:var(--dec);paint-order:stroke;stroke:var(--bg);stroke-width:4px;letter-spacing:.04em}
+.elabel.ghost{fill:var(--muted)}
+.blabel{font:600 10px var(--sans);paint-order:stroke;stroke:var(--bg);stroke-width:4px}
+.node{cursor:pointer}
+.node .shape{stroke-width:1.8;transition:fill .3s,stroke .3s}
+.node .nm{font:600 12.5px var(--sans);fill:var(--ink);paint-order:stroke;stroke:var(--bg);stroke-width:4px}
+.node .sb{font:400 10.5px var(--mono);fill:var(--muted);paint-order:stroke;stroke:var(--bg);stroke-width:4px}
+.node .inner{font:600 10.5px var(--mono);fill:var(--ink);pointer-events:none}
+.node.ghost{opacity:.4}
+.node.sel .shape{stroke:var(--ink)!important;stroke-width:2.6}
+.ring{fill:none;stroke-width:2;opacity:0}
+.node.active .ring{animation:ring 1.4s ease-out infinite}
+.packet{filter:url(#glow)}
+.tog circle{fill:var(--bg);stroke:var(--line-2);stroke-width:1.4}
+.tog text{font:600 9.5px var(--mono);fill:var(--ink);pointer-events:none}
+.node.collapsed .tog circle{fill:var(--agent-soft);stroke:var(--agent)}
+.node.collapsed .shape{stroke-dasharray:3 2}
+.node.haskids:hover .tog circle{stroke:var(--agent)}
+/* inspector */
+.insp{position:absolute;top:56px;right:14px;width:min(320px,calc(100% - 28px));background:color-mix(in srgb,var(--panel-2) 96%,transparent);border:1px solid var(--line-2);border-radius:14px;padding:14px;display:grid;gap:10px;box-shadow:0 18px 40px rgba(0,0,0,.45);animation:pop .2s ease both}
+.insp h3{margin:0;font-family:var(--display);font-size:18px;letter-spacing:-.01em;display:flex;justify-content:space-between;gap:8px;align-items:start}
+.insp h3 button{padding:0 8px;font-size:16px;line-height:24px}
+.insp dl{margin:0;display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 12px;font-size:12.5px}
+.insp dt{color:var(--muted)}
+.insp dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.insp .why{border-left:2px solid var(--dec);padding:6px 10px;background:var(--dec-soft);border-radius:0 8px 8px 0;font-size:12.5px}
+.insp .why.v{border-color:var(--verify);background:var(--verify-soft)}
+.insp .why.b{border-color:var(--bad);background:var(--bad-soft)}
+.tag{display:inline-flex;font-size:11px;font-weight:600;border-radius:999px;padding:1px 8px;border:1px solid var(--line-2)}
+.mono{font-family:var(--mono);font-size:12px}
+/* lower panels */
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:14px;align-items:start}
+@media (max-width:1000px){.grid{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;min-width:0}
+.card>h2{font-family:var(--display);font-size:15px;font-weight:700;margin:0;padding:11px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+.card>h2 .lbl{font-family:var(--sans)}
+.logbar{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:7px 16px;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted);min-height:36px}
+.logbar button{padding:2px 10px;font-size:11.5px}
+.log{font-family:var(--mono);font-size:12px;height:430px;overflow:auto;padding:10px 16px;display:flex;flex-direction:column;gap:5px}
+.log>div{display:grid;grid-template-columns:42px 120px minmax(0,1fr);gap:8px;animation:pop .25s ease both}
+.log .t{color:var(--muted)}
+.log .a{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.a.pl{color:var(--ink)}.a.sp{color:var(--agent)}.a.ch{color:var(--run)}.a.vf{color:var(--verify)}.a.sf{color:var(--ok)}.a.dc{color:var(--dec)}
+.log .m small{display:block;color:var(--muted);font-size:10.5px}
+.log .w{color:var(--warn)}.log .e{color:var(--bad)}.log .o{color:var(--ok)}.log .f{color:var(--money)}.log .vb{color:var(--bad);font-weight:600}
+.idle{color:var(--muted);font-family:var(--sans)}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:680px}
+th,td{text-align:left;padding:8px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:600}
+tbody tr{cursor:pointer;transition:background .15s}
+tbody tr:hover{background:var(--panel-2)}
+tbody tr.sel{background:var(--agent-soft)}
+tr:last-child td{border-bottom:0}
+td.id{font-family:var(--mono);font-size:12px;color:var(--muted);white-space:nowrap}
+.pt{font-weight:600}.pt small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+.res{font-size:12px;color:var(--muted)}
+td.amt{font-family:var(--mono);font-size:12px;text-align:right;white-space:nowrap}
+td.amt.got{color:var(--money)}
+th.r{text-align:right}
+.pill{display:inline-flex;font-size:11.5px;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap}
+.s-queued{background:var(--line);color:var(--muted)}.s-working{background:#18264a;color:var(--run)}.s-retry{background:var(--warn-soft);color:var(--warn)}
+.s-fix{background:var(--verify-soft);color:var(--verify)}.s-done{background:var(--ok-soft);color:var(--ok)}.s-esc{background:var(--bad-soft);color:var(--bad)}
+.code{font-family:var(--mono);font-size:11px;border:1px solid var(--line-2);border-radius:5px;padding:0 5px;color:var(--ink)}
+.esc{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px;padding:14px 16px}
+.ecard{border:1px solid var(--line);border-left:3px solid var(--bad);border-radius:10px;padding:12px 14px;display:grid;gap:8px;background:var(--panel-2);animation:pop .3s ease both}
+.ecard.ok{border-left-color:var(--ok)}
+.ecard b{font-size:13.5px}.ecard p{margin:0;color:var(--muted);font-size:12.5px}
+.ecard .act{display:flex;gap:6px;flex-wrap:wrap}
+.ecard button{padding:5px 11px;font-size:12px}
+.empty{color:var(--muted);font-size:12.5px;margin:0}
+.note{font-size:12px;color:var(--muted);margin:0}
+/* overlays */
+.veil{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:rgba(3,6,14,.82);backdrop-filter:blur(3px);animation:fadein .4s ease both;padding:16px}
+.veil .inner{text-align:center;display:grid;gap:10px}
+.veil .big{font-family:var(--display);font-size:clamp(56px,10vw,120px);font-weight:800;letter-spacing:-.04em;line-height:1}
+.veil p{margin:0;color:var(--muted);font-size:18px}
+.veil.out{animation:fadeout .5s ease forwards}
+.report{width:min(760px,100%);background:linear-gradient(160deg,var(--ok-soft),var(--panel) 55%);border:1px solid color-mix(in srgb,var(--ok) 40%,var(--line));border-radius:20px;padding:26px;display:grid;gap:18px;animation:rise .5s cubic-bezier(.2,.8,.2,1) both;max-height:calc(100vh - 32px);overflow:auto}
+.report h3{font-family:var(--display);font-size:clamp(24px,3.4vw,34px);font-weight:800;letter-spacing:-.02em;margin:0;text-wrap:balance}
+.report .hero{font-family:var(--display);font-size:clamp(48px,8vw,84px);font-weight:800;color:var(--money);letter-spacing:-.04em;line-height:1}
+.report .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px}
+.report .row div{display:grid;gap:2px}
+.report .row b{font-family:var(--display);font-size:26px;font-weight:700}
+.report p{margin:0;color:var(--muted);max-width:70ch}
+.report .act{display:flex;gap:8px;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:15;background:var(--panel-2);border:1px solid var(--bad);border-radius:12px;padding:10px 16px;font-size:13px;max-width:min(92vw,560px);box-shadow:0 10px 30px rgba(0,0,0,.5);animation:pop .25s ease both}
+/* presenter mode: bigger everything for a projector */
+body.present{font-size:15.5px}
+body.present .log{font-size:14px;height:520px}
+body.present .log>div{grid-template-columns:48px 140px minmax(0,1fr)}
+body.present .kpi .n{font-size:36px}
+body.present .money .big{font-size:clamp(44px,5vw,64px)}
+body.present #graph{height:min(74vh,760px)}
+body.present .node .nm{font-size:14.5px}
+body.present .node .sb{font-size:12px}
+@keyframes pop{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@keyframes rise{from{opacity:0;transform:translateY(30px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+@keyframes fadeout{to{opacity:0;visibility:hidden}}
+@keyframes bump{40%{transform:scale(1.05)}}
+@keyframes ring{0%{opacity:.8;transform:scale(1)}100%{opacity:0;transform:scale(1.9)}}
+@keyframes dash{to{stroke-dashoffset:-18}}
+.ring{transform-box:fill-box;transform-origin:center}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+<div class="brand">
+<div class="mark">Rx</div>
+<div>
+<h1>EMR Copilot</h1>
+<div class="sub"><span>Sunrise Family Medicine · 4 providers</span><span class="chip c">Nemotron on Crusoe</span><span class="chip d" id="modeChip">DEMO_MODE · scripted</span></div>
+</div>
+</div>
+<div class="right">
+<div class="clock">
+<span class="lbl">Clinic time</span>
+<div class="t num"><span id="clock">22:00</span><small id="clockSub">staff leaving</small></div>
+<div class="track"><i id="track"></i></div>
+</div>
+<div class="ctrls">
+<button id="run">Run overnight</button>
+<button id="speed" class="ghost">Speed 1×</button>
+<button id="present" class="ghost" aria-pressed="false">Presenter</button>
+<button id="reset" class="ghost">Reset</button>
+</div>
+</div>
+</header>
+<section class="strip" aria-label="Run summary">
+<div class="money" id="moneyCard"><span class="lbl">Revenue recovered tonight</span><div class="big num" id="money">$0<span class="c">.00</span></div><div class="brk num" id="moneyBrk">0 claims fixed · 0 auths secured · 0.0 staff hours saved</div></div>
+<div class="kpi ok"><span class="lbl">Resolved</span><span class="n num" id="kDone">0</span></div>
+<div class="kpi bad"><span class="lbl">Needs a human</span><span class="n num" id="kEsc">0</span></div>
+<div class="kpi a"><span class="lbl">Sub-agents</span><span class="n num" id="kKids">0</span></div>
+<div class="kpi d"><span class="lbl">Decisions</span><span class="n num" id="kDec">0</span></div>
+<div class="kpi w"><span class="lbl">Recoveries</span><span class="n num" id="kRetry">0</span></div>
+<div class="kpi v"><span class="lbl">Verifier blocks</span><span class="n num" id="kBlock">0</span></div>
+</section>
+<section class="stage" aria-label="Live agent graph">
+<svg id="graph" role="img" aria-label="Agent spawning tree"></svg>
+<div class="hud tl">
+<span class="title">Agent graph</span>
+<div class="legend" aria-label="Legend">
+<span><svg viewBox="-7 -7 14 14"><polygon points="-6,0 -3,-5.2 3,-5.2 6,0 3,5.2 -3,5.2" fill="none" stroke="#e8eefa" stroke-width="1.6"/></svg>Planner</span>
+<span><svg viewBox="-7 -7 14 14"><circle r="5" fill="#0f3142" stroke="#53cfe6" stroke-width="1.6"/></svg>Sub-agent</span>
+<span><svg viewBox="-7 -7 14 14"><polygon points="0,-6 6,0 0,6 -6,0" fill="#1c2846" stroke="#dce6ff" stroke-width="1.6"/></svg>Decision</span>
+<span><svg viewBox="-7 -7 14 14"><polygon points="-2.5,-6 2.5,-6 6,-2.5 6,2.5 2.5,6 -2.5,6 -6,2.5 -6,-2.5" fill="#251e45" stroke="#b49dff" stroke-width="1.6"/></svg>Verifier</span>
+<span><svg viewBox="-7 -7 14 14"><path d="M-5,2 A5,5 0 1,1 2,5" fill="none" stroke="#f59e5b" stroke-width="1.6"/></svg>Recovery</span>
+<span><svg viewBox="-7 -7 14 14"><circle r="5" fill="#10301f" stroke="#5fd49b" stroke-width="1.6"/></svg>Closed</span>
+<span><svg viewBox="-7 -7 14 14"><rect x="-5" y="-5" width="10" height="10" rx="2" fill="#3a171c" stroke="#f4777b" stroke-width="1.6"/></svg>Human</span>
+</div>
+</div>
+<div class="hud tr"><button class="ghost" id="collapseAll">Collapse all</button><button class="ghost" id="expandAll">Expand all</button><button class="ghost on" id="follow" aria-pressed="true">Auto-follow</button><button class="ghost" id="fit">Fit</button></div>
+<div class="hud bl"><div class="ticker" id="ticker">Idle. Press <b>Run overnight</b>: the Planner splits 12 cases across 4 specialists, who spawn sub-agents per task.</div></div>
+<div class="insp" id="insp" hidden></div>
+</section>
+<div class="grid">
+<section class="card" aria-label="Live log">
+<h2>Live log <span class="lbl" id="logCount">0 events</span></h2>
+<div class="logbar"><span id="filterTxt">All cases · click a case or node to filter</span><button class="ghost" id="clearFilter" hidden>Show all</button></div>
+<div class="log" id="log" aria-live="polite"><span class="idle">Waiting for the run to start.</span></div>
+</section>
+<section class="card" aria-label="Case queue">
+<h2>Tonight's backlog <span class="lbl">12 cases · synthetic</span></h2>
+<div class="tbl"><table>
+<thead><tr><th>Case</th><th>Patient</th><th>Task</th><th>Status</th><th class="r">Value</th></tr></thead>
+<tbody id="rows"></tbody>
+</table></div>
+</section>
+</div>
+<section class="card" aria-label="Staff queue">
+<h2>Needs a human <span class="lbl">morning queue for front desk and physicians</span></h2>
+<div class="esc" id="esc"><p class="empty">Nothing here yet. A case lands here only when an agent can't finish it on its own.</p></div>
+</section>
+<p class="note">All patients, payers, IDs and NPIs are fictional. Denials use standard CARC reason codes. This run is scripted in the browser; in live mode every node is a Nemotron call on Crusoe Managed Inference.</p>
+</div>
+<div id="overlay"></div>
+<div class="toast" id="toast" hidden></div>
+<script>
+/* ======================= script ======================= */
+const MODEL={planner:"Nemotron-3-Super-120B",worker:"Nemotron-3-Nano-30B",verifier:"Nemotron-3-Ultra-550B"};
+const SPECS=[["ChartPrep","Pre-visit summaries"],["PriorAuth","Evidence → payer → submit"],["Referral","Specialist, records, send"],["Denials","Read code, fix or appeal"]];
+/* event types: a=sub-agent, d=decision, r=recovery loop, g=Verifier pass, b=Verifier block, o=closed, h=human */
+const CASES=[
+{id:"PA-1042",pt:"Maria Delgado",dob:"1961-03-14",type:"Prior auth",ag:"PriorAuth",detail:"Ozempic 0.5 mg · Blue Shield CA",mins:45,value:2940,vk:"auth",short:"Delgado · Ozempic",
+ev:[["a","EvidenceGatherer","A1c 8.4% · metformin 14 mo"],
+["d","Meets payer criteria?","Yes",{why:"T2DM diagnosis ✓ · first-line therapy ≥ 3 months ✓ · A1c ≥ 7.0% ✓",ghost:["No","request more evidence"]}],
+["a","PortalSubmitter","504 Gateway Timeout","warn"],
+["r","Retry 1/3","backoff 20 s → submitted"],
+["g","Verifier","auth matches chart"],["o","Approved","auth BSC-77310"]]},
+{id:"CP-2201",pt:"James Okafor",dob:"1978-09-02",type:"Chart prep",ag:"ChartPrep",detail:"Annual physical · 08:30",mins:15,value:0,short:"Okafor · physical",
+ev:[["a","LabSummarizer","3 visits · 2 labs · 1 imaging"],["a","CareGapScanner","colorectal screening overdue","flag"],
+["d","Urgent finding?","No",{why:"No critical labs, no red-flag symptoms in last 3 visits",ghost:["Yes","page on-call"]}],
+["g","Verifier","summary matches chart"],["o","Summary ready","1 care gap flagged"]]},
+{id:"DN-3307",pt:"Linda Chen",dob:"1955-11-20",type:"Claim denial",ag:"Denials",detail:"<span class=code>CO-97</span> bundling · Medicare",mins:40,value:186.40,vk:"claim",short:"Chen · CO-97",
+ev:[["a","ERAReader","CARC CO-97 · bundled with ECG"],
+["d","Separate problem documented?","Yes",{why:"Visit note documents a new problem worked up apart from the same-day ECG",ghost:["No","accept denial"]}],
+["a","ClaimFixer","+ modifier 25 on 99214"],["g","Verifier","coding matches note"],["o","Resubmitted","$186.40"]]},
+{id:"RF-4410",pt:"Robert Haines",dob:"1949-06-07",type:"Referral",ag:"Referral",detail:"Cardiology · Aetna HMO",mins:30,value:0,short:"Haines · cardiology",
+ev:[["a","NPISearch","3 cardiologists ≤ 10 mi"],
+["d","In network for Aetna HMO?","Yes",{why:"Bay Heart Associates is listed in-network; accepting new patients",ghost:["No","next option"]}],
+["a","RecordPacker","ECG + 2 visit notes"],["g","Verifier","records match referral"],["o","Referral sent","Bay Heart Associates"]]},
+{id:"PA-1043",pt:"Aisha Rahman",dob:"1990-01-30",type:"Prior auth",ag:"PriorAuth",detail:"Lumbar MRI · UnitedHealthcare",mins:45,value:0,short:"Rahman · MRI",
+ev:[["a","EvidenceGatherer","6 wks PT · pain 7/10"],
+["d","Can agents finish it?","No",{why:"UHC requires a signed physician attestation. Agents never sign for a physician.",ghost:["Yes","submit auth"]}],
+["h","Needs Dr. Patel","signature on pre-filled packet"]],
+esc:"UHC needs a signed physician attestation before the MRI auth can go in. The packet is pre-filled and ready to sign.",result:"Needs physician signature"},
+{id:"CP-2202",pt:"Tom Becker",dob:"1983-04-18",type:"Chart prep",ag:"ChartPrep",detail:"Follow-up · 09:15",mins:15,value:0,short:"Becker · follow-up",
+ev:[["a","LabSummarizer","empty result set","warn"],["r","Re-query by MRN","2 lab panels found"],
+["a","MedReconciler","8 meds · 1 allergy"],["g","Verifier","summary matches chart"],["o","Summary ready","labs attached"]]},
+{id:"DN-3308",pt:"Grace Liu",dob:"1972-08-25",type:"Claim denial",ag:"Denials",detail:"<span class=code>CO-16</span> missing info · Cigna",mins:35,value:142,vk:"claim",short:"Liu · CO-16",
+ev:[["a","ERAReader","CARC CO-16 · referring NPI blank"],["a","NPISearch","'Dr. K. Lee' → NPI ••4471"],["a","ClaimFixer","NPI inserted"],
+["b","Verifier","NPI ••4471 is dermatology",{why:"Referral in the chart is to cardiology. NPI ••4471 belongs to a dermatologist with the same name. Sent back to NPISearch.",back:1}],
+["a","NPISearch","specialty + city → NPI ••8820"],["a","ClaimFixer","resubmitted to Cigna"],["g","Verifier","NPI matches referral"],["o","Resubmitted","$142.00"]]},
+{id:"RF-4411",pt:"Daniel Morales",dob:"1966-12-03",type:"Referral",ag:"Referral",detail:"Dermatology · Kaiser",mins:30,value:0,short:"Morales · dermatology",
+ev:[["a","NPISearch","Kaiser: internal referral only"],["a","EligibilityCheck","new plan since 09/01","err"],
+["d","Coverage on file current?","No",{why:"Eligibility response shows a different plan effective 09/01. Routing on old coverage would be denied.",ghost:["Yes","send referral"]}],
+["h","Confirm insurance","front desk to call patient"]],
+esc:"Eligibility shows a new plan since 09/01. Front desk should confirm coverage with the patient before the referral is re-routed.",result:"Insurance on file outdated"},
+{id:"PA-1044",pt:"Helen Park",dob:"1958-02-11",type:"Prior auth",ag:"PriorAuth",detail:"CPAP renewal · Medicare",mins:40,value:1250,vk:"auth",short:"Park · CPAP",
+ev:[["a","EvidenceGatherer","82% of nights ≥ 4 h"],
+["d","Meets 70% usage rule?","Yes",{why:"Compliance download: 82% of nights with ≥ 4 h use over 30 days",ghost:["No","coach patient"]}],
+["a","PortalSubmitter","renewal submitted"],["g","Verifier","matches compliance data"],["o","Approved","auth MCR-55102"]]},
+{id:"DN-3309",pt:"Victor Nguyen",dob:"1987-07-09",type:"Claim denial",ag:"Denials",detail:"<span class=code>CO-50</span> medical necessity · Anthem",mins:50,value:1410,vk:"claim",short:"Nguyen · CO-50",
+ev:[["a","ERAReader","CARC CO-50 · necessity"],
+["d","Appeal or write off?","Appeal",{why:"Imaging plus 3 documented failed treatments support medical necessity",ghost:["Write off","close claim"]}],
+["a","AppealDrafter","letter + 4 attachments"],["g","Verifier","appeal matches chart"],["o","Appeal filed","$1,410.00"]]},
+{id:"CP-2203",pt:"Sofia Rossi",dob:"1995-05-22",type:"Chart prep",ag:"ChartPrep",detail:"New patient · 10:00",mins:20,value:0,short:"Rossi · new patient",
+ev:[["a","RecordImporter","2 outside PDFs"],["a","MedReconciler","1 duplicate removed"],["g","Verifier","med list matches records"],["o","Summary ready","meds reconciled"]]},
+{id:"RF-4412",pt:"Frank Wilson",dob:"1952-10-15",type:"Referral",ag:"Referral",detail:"Orthopedics · Blue Shield PPO",mins:25,value:0,short:"Wilson · ortho",
+ev:[["a","RecordPacker","X-ray + visit notes"],["a","FaxSender","line busy","warn"],["r","Switch channel","e-referral portal ✓"],
+["g","Verifier","delivery confirmed"],["o","Referral sent","Peninsula Ortho"]]},
+];
+const BASE=1000, PAR=3, ROW=40, COL=168;
+const TOTAL=CASES.reduce((a,c)=>a+c.ev.length+1,0);
+/* ======================= state ======================= */
+const $=s=>document.getElementById(s);
+let speed=1, runId=0, running=false, follow=true, filter=null, selected=null;
+let state={}, handled={}, n, moneyShown=0, moneyRAF=null, ids=0;
+let rootData, nodesById={}, backs=[], visible=new Set();
+const FOLD=new Set(["planner","spec","case","d"]);
+const canFold=d=>FOLD.has(d.type)&&d.children.length>0;
+function countDesc(d){return d.children.reduce((a,c)=>a+1+countDesc(c),0)}
+function isShown(d){let p=nodesById[d.parentId];while(p){if(p.collapsed)return false;p=nodesById[p.parentId]}return true}
+function setAll(c){Object.values(nodesById).forEach(d=>{if(canFold(d)&&d.type!=="planner")d.collapsed=c});render()}
+const caseNode={}, specNode={};
+/* ======================= graph setup ======================= */
+const svg=d3.select("#graph");
+const defs=svg.append("defs");
+const f=defs.append("filter").attr("id","glow").attr("x","-200%").attr("y","-200%").attr("width","500%").attr("height","500%");
+f.append("feGaussianBlur").attr("stdDeviation","3").attr("result","b");
+const fm=f.append("feMerge");fm.append("feMergeNode").attr("in","b");fm.append("feMergeNode").attr("in","SourceGraphic");
+const view=svg.append("g");
+const gLinks=view.append("g"), gBacks=view.append("g"), gElab=view.append("g"), gNodes=view.append("g"), gPackets=view.append("g");
+const zoom=d3.zoom().scaleExtent([.25,2.5]).on("zoom",e=>{view.attr("transform",e.transform);if(e.sourceEvent){setFollow(false)}});
+svg.call(zoom).on("dblclick.zoom",null);
+const linkGen=d3.linkHorizontal().x(d=>d.y).y(d=>d.x);
+const tree=d3.tree().nodeSize([ROW,COL]).separation((a,b)=>a.parent===b.parent?1:1.25);
+const css=k=>getComputedStyle(document.documentElement).getPropertyValue(k).trim();
+function mk(type,name,sub,parent,extra={}){
+const d={id:"n"+(++ids),type,name,sub,children:[],status:"active",...extra};
+nodesById[d.id]=d;if(parent){d.parentId=parent.id;parent.children.push(d)}return d;
+}
+function styleFor(d){
+const s=d.status;
+const map={
+goal:[css("--panel-2"),css("--line-2")],planner:[css("--panel-2"),css("--ink")],spec:[css("--agent-soft"),css("--agent")],
+case:[css("--panel-2"),css("--line-2")],a:[css("--agent-soft"),css("--agent")],d:[css("--dec-soft"),css("--dec")],
+r:[css("--warn-soft"),css("--warn")],g:[css("--verify-soft"),css("--verify")],b:[css("--bad-soft"),css("--bad")],
+o:[css("--ok-soft"),css("--ok")],h:[css("--bad-soft"),css("--bad")]};
+let [fill,stroke]=map[d.type]||map.a;
+if(d.type==="case"){if(s==="done"){stroke=css("--ok")}else if(s==="human"){stroke=css("--bad")}else if(s==="active"){stroke=css("--run")}}
+if(d.type==="a"&&s==="warn"){fill=css("--warn-soft");stroke=css("--warn")}
+if(d.type==="a"&&s==="err"){fill=css("--bad-soft");stroke=css("--bad")}
+if(d.type==="o"&&d.money){stroke=css("--money");fill=css("--money-soft")}
+return {fill,stroke};
+}
+function shapePath(t){
+switch(t){
+case"planner":return"M-15,0L-7.5,-13L7.5,-13L15,0L7.5,13L-7.5,13Z";
+case"d":return"M0,-11L11,0L0,11L-11,0Z";
+case"g":case"b":return"M-4.5,-11L4.5,-11L11,-4.5L11,4.5L4.5,11L-4.5,11L-11,4.5L-11,-4.5Z";
+case"h":return"M-9,-9H9V9H-9Z";
+default:return null;
+}
+}
+function radius(d){return d.type==="goal"?0:d.type==="planner"?15:d.type==="spec"?0:d.type==="case"?0:d.type==="a"||d.type==="o"?9:d.type==="r"?8:11}
+function labelX(d){return d.type==="goal"?70:d.type==="spec"?50:d.type==="case"?36:radius(d)+7}
+let scheduled=false;
+function render(){if(scheduled)return;scheduled=true;requestAnimationFrame(()=>{scheduled=false;draw()})}
+function draw(){
+const T=550/speed;
+const root=d3.hierarchy(rootData,d=>d.collapsed?null:d.children);tree(root);
+const all=root.descendants();
+visible=new Set(all.map(h=>h.data.id));
+const anc=id=>{let d=nodesById[id];while(d&&!visible.has(d.id))d=nodesById[d.parentId];return d||rootData};
+all.forEach(h=>{h.data.x=h.x;h.data.y=h.y});
+const pos=id=>{const d=nodesById[id];return d?{x:d.x,y:d.y}:{x:0,y:0}};
+const startOf=h=>{const p=h.parent?h.parent.data:h.data;return {x:p.x0??p.x??0,y:p.y0??p.y??0}};
+/* links */
+const links=root.links();
+const ls=gLinks.selectAll("path.link").data(links,l=>l.target.data.id);
+ls.enter().append("path").attr("class",l=>linkClass(l))
+.attr("d",l=>{const s=startOf(l.target);return linkGen({source:s,target:s})})
+.merge(ls).attr("class",l=>linkClass(l)).transition().duration(T).attr("d",l=>linkGen({source:l.source,target:l.target}));
+ls.exit().transition().duration(T).attr("d",l=>{const a=anc(l.target.data.id);const q={x:a.x,y:a.y};return linkGen({source:q,target:q})}).style("opacity",0).remove();
+/* edge labels on decision branches */
+const el=links.filter(l=>l.target.data.edge);
+const es=gElab.selectAll("text").data(el,l=>l.target.data.id);
+es.enter().append("text").attr("class",l=>"elabel"+(l.target.data.ghost?" ghost":"")).attr("text-anchor","middle").attr("opacity",0)
+.text(l=>l.target.data.edge)
+.attr("x",l=>(l.source.y+l.target.y)/2+6).attr("y",l=>(l.source.x+l.target.x)/2-5)
+.merge(es).transition().duration(T).attr("opacity",1)
+.attr("x",l=>(l.source.y+l.target.y)/2+6).attr("y",l=>(l.source.x+l.target.x)/2-5);
+es.exit().transition().duration(T/2).attr("opacity",0).remove();
+/* nodes */
+const ns=gNodes.selectAll("g.node").data(all,h=>h.data.id);
+const ne=ns.enter().append("g").attr("class","node")
+.attr("transform",h=>{const s=startOf(h);return `translate(${s.y},${s.x}) scale(.2)`})
+.on("click",(e,h)=>{e.stopPropagation();const d=h.data;if(canFold(d))d.collapsed=!d.collapsed;select(d.id)});
+ne.each(function(h){
+const g=d3.select(this),d=h.data,p=shapePath(d.type);
+if(d.type==="goal"){g.append("rect").attr("class","shape").attr("x",-64).attr("y",-17).attr("width",128).attr("height",34).attr("rx",17)}
+else if(d.type==="spec"){g.append("rect").attr("class","shape").attr("x",-44).attr("y",-14).attr("width",88).attr("height",28).attr("rx",8)}
+else if(d.type==="case"){g.append("rect").attr("class","shape").attr("x",-31).attr("y",-11).attr("width",62).attr("height",22).attr("rx",5)}
+else if(p){g.append("path").attr("class","shape").attr("d",p)}
+else{g.append("circle").attr("class","shape").attr("r",radius(d))}
+if(d.type==="r"){g.append("path").attr("d","M-5,-3 A6,6 0 1,1 -1,6").attr("fill","none").attr("stroke",css("--warn")).attr("stroke-width",1.6);
+g.append("path").attr("d","M-8,-4 L-4.5,-3.4 L-5.5,0").attr("fill","none").attr("stroke",css("--warn")).attr("stroke-width",1.6)}
+if(d.type==="o"&&!d.ghost){g.append("path").attr("d","M-4,0 L-1,3.2 L4.5,-3.5").attr("fill","none").attr("stroke",d.money?css("--money"):css("--ok")).attr("stroke-width",2)}
+if(d.type==="h"){g.append("text").attr("class","inner").attr("text-anchor","middle").attr("dy","3.6").text("!").style("fill",css("--bad"))}
+if(d.type==="b"){g.append("text").attr("class","inner").attr("text-anchor","middle").attr("dy","3.6").text("✕").style("fill",css("--bad"))}
+if(d.type==="g"){g.append("path").attr("d","M-4,0 L-1,3 L4,-3").attr("fill","none").attr("stroke",css("--verify")).attr("stroke-width",1.8)}
+if(d.type==="goal"){g.append("text").attr("class","inner").attr("text-anchor","middle").attr("dy","4").style("font-family","var(--sans)").style("font-size","12px").text(d.name)}
+else if(d.type==="spec"){g.append("text").attr("class","inner").attr("text-anchor","middle").attr("dy","4").style("font-family","var(--sans)").style("font-size","12px").style("fill",css("--agent")).text(d.name)}
+else if(d.type==="case"){g.append("text").attr("class","inner").attr("text-anchor","middle").attr("dy","3.8").text(d.name)}
+g.append("circle").attr("class","ring").attr("r",Math.max(10,radius(d)+2));
+const lx=labelX(d);
+if(d.type==="goal"){g.append("text").attr("class","sb").attr("x",0).attr("y",30).attr("text-anchor","middle").text(d.sub)}
+else if(d.type==="spec"||d.type==="case"){g.append("text").attr("class","sb").attr("x",lx).attr("y",4).text(d.sub)}
+else{g.append("text").attr("class","nm").attr("x",lx).attr("y",-1).text(d.name);g.append("text").attr("class","sb").attr("x",lx).attr("y",12).text(d.sub)}
+});
+const nm=ne.merge(ns);
+nm.attr("class",h=>{const d=h.data;return "node"+(d.ghost?" ghost":"")+(d.status==="active"?" active":"")+(selected===d.id?" sel":"")+(canFold(d)?" haskids":"")+(d.collapsed?" collapsed":"")})
+.each(function(h){const d=h.data,g=d3.select(this);let t=g.select("g.tog");
+if(!canFold(d)){t.remove();return}
+if(t.empty()){t=g.append("g").attr("class","tog");t.append("circle").attr("r",7.5);t.append("text").attr("text-anchor","middle").attr("dy","3.3")}
+const bx=d.type==="spec"?44:d.type==="case"?31:d.type==="planner"?15:radius(d);
+t.attr("transform",`translate(${bx},${-radius(d)-(d.type==="spec"?14:d.type==="case"?11:0)})`);
+t.select("text").text(d.collapsed?"+"+countDesc(d):"−")})
+.each(function(h){const st=styleFor(h.data);d3.select(this).select(".shape").attr("fill",st.fill).attr("stroke",st.stroke);d3.select(this).select(".ring").attr("stroke",st.stroke)});
+nm.transition().duration(T).attr("transform",h=>`translate(${h.y},${h.x}) scale(1)`);
+ns.exit().transition().duration(T).attr("transform",h=>{const a=anc(h.data.id);return `translate(${a.y},${a.x}) scale(.2)`}).style("opacity",0).remove();
+/* back-edges (recovery loops, Verifier send-backs) */
+const bs=gBacks.selectAll("g.bk").data(backs.filter(b=>visible.has(b.from)&&visible.has(b.to)),b=>b.key);
+const be=bs.enter().append("g").attr("class","bk").attr("opacity",0);
+be.append("path").attr("class",b=>"back "+b.cls).attr("marker-end",b=>`url(#arr-${b.cls})`);
+be.append("text").attr("class","blabel").attr("text-anchor","middle").attr("fill",b=>b.cls==="bad"?css("--bad"):css("--warn")).text(b=>b.label);
+const bm=be.merge(bs);
+bm.transition().duration(T).attr("opacity",1);
+bm.select("path").transition().duration(T).attr("d",b=>backPath(b));
+bm.select("text").transition().duration(T).attr("x",b=>{const a=pos(b.from),c=pos(b.to);return (a.y+c.y)/2}).attr("y",b=>{const a=pos(b.from),c=pos(b.to);return Math.min(a.x,c.x)-arcH(b)+4});
+bs.exit().transition().duration(T/2).attr("opacity",0).remove();
+all.forEach(h=>{h.data.x0=h.x;h.data.y0=h.y});
+if(follow)fit(T);
+}
+function linkClass(l){const t=l.target.data;return "link"+(t.ghost?" ghost":t.edge?" taken":(t.status==="active"?" live":""))}
+function arcH(b){const a=nodesById[b.from],c=nodesById[b.to];return 26+Math.min(40,Math.abs((a?.y||0)-(c?.y||0))*.12)}
+function backPath(b){const a=nodesById[b.from],c=nodesById[b.to];if(!a||!c)return"";const h=arcH(b);
+const x1=a.y,y1=a.x-10,x2=c.y,y2=c.x-11;return `M${x1},${y1} C${x1},${y1-h} ${x2},${y2-h} ${x2},${y2}`}
+["warn","bad"].forEach(k=>defs.append("marker").attr("id","arr-"+k).attr("viewBox","0 0 10 10").attr("refX",8).attr("refY",5).attr("markerWidth",7).attr("markerHeight",7).attr("orient","auto-start-reverse")
+.append("path").attr("d","M0,0 L10,5 L0,10 z").attr("fill",css(k==="warn"?"--warn":"--bad")));
+function fit(T=600){
+const ds=Object.values(nodesById).filter(d=>visible.has(d.id)&&d.x!==undefined);if(!ds.length)return;
+const minX=d3.min(ds,d=>d.x)-70,maxX=d3.max(ds,d=>d.x)+40,minY=d3.min(ds,d=>d.y)-80,maxY=d3.max(ds,d=>d.y)+190;
+const el=svg.node(),W=el.clientWidth,H=el.clientHeight;
+const padTop=60,padBot=48;
+const k=Math.min(1.25,W/(maxY-minY),(H-padTop-padBot)/(maxX-minX));
+const tx=(W-(maxY-minY)*k)/2-minY*k, ty=padTop+((H-padTop-padBot)-(maxX-minX)*k)/2-minX*k;
+svg.transition().duration(T).call(zoom.transform,d3.zoomIdentity.translate(tx,ty).scale(k));
+}
+function packet(from,to,color){
+if(!from||!to)return;
+if(!isShown(to))return;
+const delay=520/speed,dur=650/speed;
+setTimeout(()=>{
+const p=gPackets.append("path").attr("d",linkGen({source:{x:from.x,y:from.y},target:{x:to.x,y:to.y}})).attr("fill","none").attr("stroke","none");
+const node=p.node(),L=node.getTotalLength();
+const c=gPackets.append("circle").attr("class","packet").attr("r",4.2).attr("fill",color);
+c.transition().duration(dur).ease(d3.easeCubicInOut).attrTween("transform",()=>t=>{const pt=node.getPointAtLength(t*L);return `translate(${pt.x},${pt.y})`})
+.on("end",()=>{c.remove();p.remove()});
+},delay);
+}
+/* ======================= inspector ======================= */
+function select(id){
+selected=id;const d=nodesById[id];render();
+if(!d){$("insp").hidden=true;return}
+const typeName={goal:"Goal",planner:"Planner",spec:"Specialist agent",case:"Case",a:"Sub-agent",d:"Decision",r:"Recovery loop",g:"Verifier check",b:"Verifier block",o:"Closed",h:"Needs a human"}[d.type];
+const model=d.type==="planner"?MODEL.planner:(d.type==="g"||d.type==="b")?MODEL.verifier:(["a","d","r","spec"].includes(d.type))?MODEL.worker:"—";
+const c=d.caseId?CASES.find(x=>x.id===d.caseId):null;
+const whyCls=d.type==="g"?"why v":d.type==="b"?"why b":"why";
+$("insp").innerHTML=`<h3><span>${esc(d.type==="case"?d.name+" · "+c.pt:d.name)}</span><button class="ghost" id="inspX" aria-label="Close">×</button></h3>
+<dl><dt>Type</dt><dd><span class="tag">${typeName}</span></dd>
+${c?`<dt>Case</dt><dd class="mono">${c.id} · ${esc(c.type)}</dd>`:""}
+<dt>Model</dt><dd class="mono">${model}</dd>
+<dt>${d.type==="d"?"Answer":"Output"}</dt><dd>${esc(d.type==="d"?d.answer:d.sub)}</dd>
+${d.type==="case"?`<dt>Task</dt><dd>${c.detail}</dd>`:""}
+${d.status?`<dt>State</dt><dd>${{active:"Running",done:"Finished",warn:"Failed, recovering",err:"Blocked by data",human:"Waiting for staff"}[d.status]||d.status}</dd>`:""}</dl>
+${d.why?`<div class="${whyCls}">${esc(d.why)}</div>`:""}
+${canFold(d)?`<div class="why">${d.collapsed?`Branch folded: ${countDesc(d)} nodes hidden. Click the node again to expand.`:"Click the node again to fold this branch."}</div>`:""}
+${d.ghost?`<div class="why">Branch not taken. Shown so you can see the alternative the agent ruled out.</div>`:""}`;
+$("insp").hidden=false;$("inspX").onclick=()=>{selected=null;$("insp").hidden=true;render()};
+if(d.caseId){filter=d.caseId;applyFilter()}
+}
+svg.on("click",()=>{if(selected){selected=null;$("insp").hidden=true;render()}});
+/* ======================= UI helpers ======================= */
+function esc(s){return String(s??"").replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]))}
+function money(v){return "$"+v.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}
+function pill(s){const m={queued:["Queued","s-queued"],working:["Working","s-working"],retry:["Recovering","s-retry"],fix:["Fixing after review","s-fix"],done:["Resolved","s-done"],esc:["Needs a human","s-esc"]}[s];return `<span class="pill ${m[1]}">${m[0]}</span>`}
+function renderRows(){
+$("rows").innerHTML=CASES.map(c=>{const st=state[c.id]||"queued",got=st==="done"&&c.value>0;
+return `<tr data-id="${c.id}" tabindex="0" class="${filter===c.id?"sel":""}"><td class="id">${c.id}</td><td class="pt">${esc(c.pt)}<small>DOB ${c.dob}</small></td>
+<td>${c.type}<div class="res">${c.detail}</div></td><td>${pill(st)}</td>
+<td class="amt ${got?"got":""}">${c.value?money(c.value)+`<div class="res">${c.vk}</div>`:'<span class="res">—</span>'}</td></tr>`}).join("");
+}
+function renderStats(){
+$("kDone").textContent=n.done;$("kEsc").textContent=n.esc;$("kKids").textContent=n.kids;$("kDec").textContent=n.dec;$("kRetry").textContent=n.retry;$("kBlock").textContent=n.block;
+const pct=Math.min(100,n.steps/TOTAL*100);$("track").style.width=pct+"%";
+const m=22*60+Math.round(pct/100*440);$("clock").textContent=String(Math.floor(m/60)%24).padStart(2,"0")+":"+String(m%60).padStart(2,"0");
+$("moneyBrk").textContent=`${n.claims} claim${n.claims===1?"":"s"} fixed · ${n.auths} auth${n.auths===1?"":"s"} secured · ${(n.hrs/60).toFixed(1)} staff hours saved`;
+}
+function tweenMoney(){
+cancelAnimationFrame(moneyRAF);const from=moneyShown,to=n.money,t0=performance.now(),dur=1000/speed;
+const card=$("moneyCard");card.classList.remove("bump");void card.offsetWidth;card.classList.add("bump");
+const step=t=>{const k=Math.min(1,(t-t0)/dur),e=1-Math.pow(1-k,3);moneyShown=from+(to-from)*e;setMoney(moneyShown);if(k<1)moneyRAF=requestAnimationFrame(step)};
+moneyRAF=requestAnimationFrame(step);
+}
+function setMoney(v){const s=money(v),i=s.lastIndexOf(".");$("money").innerHTML=`${s.slice(0,i)}<span class="c">${s.slice(i)}</span>`}
+function log(actor,msg,cls,caseId,role){
+const l=$("log");if(!n.events)l.innerHTML="";n.events++;
+const model={pl:MODEL.planner,vf:MODEL.verifier,sp:MODEL.worker,ch:MODEL.worker,dc:MODEL.worker}[role]||"";
+const d=document.createElement("div");d.dataset.case=caseId||"";
+d.innerHTML=`<span class="t">${$("clock").textContent}</span><span class="a ${role}" title="${esc(actor)}">${esc(actor)}</span><span class="m ${cls||""}">${caseId?`<span class="res">${caseId}</span> `:""}${msg}${model?`<small>${model}</small>`:""}</span>`;
+if(filter&&caseId!==filter)d.hidden=true;
+l.appendChild(d);if(!filter)l.scrollTop=l.scrollHeight;
+$("logCount").textContent=n.events+" events";
+$("ticker").innerHTML=`<b>${esc(actor)}</b> ${caseId?caseId+" · ":""}${msg.replace(/<[^>]+>/g,"")}`;
+}
+function applyFilter(){
+[...$("log").children].forEach(d=>{if(d.dataset)d.hidden=!!filter&&d.dataset.case!==filter});
+$("filterTxt").textContent=filter?`Showing ${filter} only`:"All cases · click a case or node to filter";
+$("clearFilter").hidden=!filter;renderRows();
+}
+function toast(msg){$("toast").textContent=msg;$("toast").hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>$("toast").hidden=true,3600)}
+const sleep=(ms,id)=>new Promise((res,rej)=>setTimeout(()=>runId===id?res():rej("stop"),ms/speed));
+/* ======================= run ======================= */
+function buildBase(){
+ids=0;nodesById={};backs=[];
+rootData=mk("goal","Overnight backlog","12 cases · clear by 08:00",null,{status:"done"});
+const planner=mk("planner","Planner","delegates · tracks progress",rootData,{status:"done"});
+SPECS.forEach(([s,sub])=>{specNode[s]=mk("spec",s,sub,planner,{status:"done"})});
+rootData._planner=planner;
+}
+async function runCase(c,id){
+const spec=specNode[c.ag];spec.status="active";
+const cn=mk("case",c.id,c.short,spec,{caseId:c.id});caseNode[c.id]=cn;
+state[c.id]="working";renderRows();render();packet(spec,cn,css("--agent"));
+log("Planner",`Delegated ${c.type.toLowerCase()} → ${c.ag}`,"",c.id,"pl");
+n.steps++;renderStats();
+let tail=cn, pendingEdge=null; const made=[];
+for(const [t,name,sub,x] of c.ev){
+await sleep(BASE,id);
+if(tail.status==="active"&&tail.type!=="case")tail.status="done";
+if(t==="a"){
+const kind=x;const nd=mk("a",name,sub,tail,{caseId:c.id,edge:pendingEdge,status:kind==="warn"?"warn":kind==="err"?"err":"active"});pendingEdge=null;
+n.kids++;made.push(nd);
+if(kind==="warn"){state[c.id]="retry";n.retry++}
+log(name,kind==="warn"?`failed: ${sub}`:sub,{warn:"w",err:"e",flag:"f"}[kind]||"",c.id,"ch");
+packet(tail,nd,css("--agent"));tail=nd;
+}else if(t==="d"){
+const nd=mk("d",name,sub,tail,{caseId:c.id,edge:pendingEdge,answer:sub,why:x.why,status:"active"});
+mk("o",x.ghost[1],"not taken",nd,{caseId:c.id,ghost:true,edge:x.ghost[0],status:"done",why:"Ruled out: "+x.why});
+pendingEdge=sub;n.dec++;
+log("Decision",`${name} → <b>${sub}</b>`,"",c.id,"dc");
+packet(tail,nd,css("--dec"));tail=nd;
+}else if(t==="r"){
+const prev=tail;const nd=mk("r",name,sub,tail,{caseId:c.id,status:"active",why:"Recovered automatically: "+sub});
+backs.push({key:nd.id,from:nd.id,to:prev.id,cls:"warn",label:"retry"});
+prev.status="done";state[c.id]="working";
+log(c.ag,`${name}: ${sub}`,"o",c.id,"sp");packet(tail,nd,css("--warn"));tail=nd;
+}else if(t==="b"){
+const nd=mk("b",name,sub,tail,{caseId:c.id,status:"active",why:x.why});
+const target=made[x.back];if(target)backs.push({key:nd.id,from:nd.id,to:target.id,cls:"bad",label:"sent back"});
+state[c.id]="fix";n.block++;
+log("Verifier",`Blocked: ${sub}. Sent back to NPISearch.`,"vb",c.id,"vf");
+toast(`Verifier blocked ${c.id} before it went out: wrong doctor's NPI. Sending it back.`);
+packet(tail,nd,css("--bad"));tail=nd;
+}else if(t==="g"){
+const nd=mk("g",name,sub,tail,{caseId:c.id,edge:pendingEdge,status:"active",why:"Checked against the chart before closing: "+sub});pendingEdge=null;
+if(state[c.id]==="fix")state[c.id]="working";
+log("Verifier",`✓ ${sub}`,"o",c.id,"vf");packet(tail,nd,css("--verify"));tail=nd;
+}else if(t==="o"||t==="h"){
+const nd=mk(t,name,sub,tail,{caseId:c.id,edge:pendingEdge,status:"done",money:t==="o"&&c.value>0});pendingEdge=null;
+packet(tail,nd,t==="o"?css("--ok"):css("--bad"));tail=nd;
+if(t==="o"){
+state[c.id]="done";n.done++;n.hrs+=c.mins;cn.status="done";
+if(c.value){n.money+=c.value;c.vk==="auth"?n.auths++:n.claims++;tweenMoney()}
+log("Planner",`Closed: ${name} · ${sub}`,c.value?"f":"o",c.id,"pl");
+}else{
+state[c.id]="esc";n.esc++;cn.status="human";renderEsc();
+log("Planner",`Routed to staff: ${name}`,"e",c.id,"pl");
+}
+}
+n.steps++;renderRows();renderStats();render();
+}
+if(!Object.values(caseNode).some(x=>x.status==="active"&&nodesById[x.parentId]===spec))spec.status="done";
+render();
+}
+async function run(){
+if(running)return;
+hardReset();const id=++runId;running=true;
+$("run").disabled=true;$("run").textContent="Running…";$("clockSub").textContent="unattended";$("modeChip").textContent="DEMO_MODE · scripted run";
+await walkAway(id).catch(()=>{});if(runId!==id)return;
+rootData._planner.status="active";render();
+log("Planner",`Goal received: ${CASES.length} cases. Splitting across ${SPECS.length} specialists, ${PAR} cases in parallel.`,"","","pl");
+const queue=[...CASES];
+try{
+await sleep(BASE*.8,id);
+await Promise.all(Array.from({length:PAR},async()=>{while(queue.length){const c=queue.shift();await runCase(c,id)}}));
+await sleep(BASE,id);finish(id);
+}catch(e){}
+}
+function walkAway(id){
+return new Promise(res=>{
+const o=$("overlay");o.innerHTML=`<div class="veil" id="veil"><div class="inner"><span class="lbl">Sunrise Family Medicine</span><div class="big num">22:04</div><p>Staff gone home. The agents take it from here.</p></div></div>`;
+setTimeout(()=>{const v=$("veil");if(v)v.classList.add("out");setTimeout(()=>{if($("veil"))o.innerHTML="";res()},450)},Math.max(900,2200/speed));
+});
+}
+function finish(id){
+if(runId!==id)return;running=false;n.steps=TOTAL;renderStats();
+rootData._planner.status="done";Object.values(specNode).forEach(s=>s.status="done");render();
+log("Planner",`Backlog cleared: ${n.done} resolved, ${n.esc} for staff, ${n.block} bad output stopped by the Verifier.`,"o","","pl");
+$("run").disabled=false;$("run").textContent="Run again";$("clockSub").textContent="report ready";
+$("overlay").innerHTML=`<div class="veil" role="dialog" aria-label="Morning report"><div class="report">
+<span class="lbl">Morning report · ${$("clock").textContent} · Sunrise Family Medicine</span>
+<div><span class="lbl" style="color:var(--money)">Revenue recovered overnight</span><div class="hero num">${money(n.money)}</div></div>
+<h3>Backlog cleared while the clinic was closed. ${n.esc} cases need a human.</h3>
+<div class="row">
+<div><span class="lbl">Resolved</span><b class="num">${n.done} / ${CASES.length}</b></div>
+<div><span class="lbl">Staff hours saved</span><b class="num">${(n.hrs/60).toFixed(1)}</b></div>
+<div><span class="lbl">Sub-agents run</span><b class="num">${n.kids}</b></div>
+<div><span class="lbl">Decisions</span><b class="num">${n.dec}</b></div>
+<div><span class="lbl">Bad outputs stopped</span><b class="num">${n.block}</b></div>
+</div>
+<p>Every closed case passed the Verifier before it went out. ${n.retry} failures (a portal timeout, an empty lab result, a busy fax line) were recovered without anyone touching them.</p>
+<div class="act"><button id="closeReport">See the graph</button><button class="ghost" id="replay">Run again</button></div>
+</div></div>`;
+$("closeReport").onclick=()=>{$("overlay").innerHTML="";setFollow(true);fit()};
+$("replay").onclick=()=>{$("overlay").innerHTML="";run()};
+}
+function hardReset(){
+runId++;running=false;$("overlay").innerHTML="";
+state={};filter=null;selected=null;$("insp").hidden=true;
+Object.keys(caseNode).forEach(k=>delete caseNode[k]);
+n={done:0,esc:0,kids:0,dec:0,retry:0,block:0,hrs:0,money:0,claims:0,auths:0,steps:0,events:0};
+cancelAnimationFrame(moneyRAF);moneyShown=0;setMoney(0);
+gLinks.selectAll("*").remove();gNodes.selectAll("*").remove();gElab.selectAll("*").remove();gBacks.selectAll("*").remove();gPackets.selectAll("*").remove();
+buildBase();
+$("log").innerHTML=`<span class="idle">Waiting for the run to start.</span>`;$("logCount").textContent="0 events";
+$("ticker").innerHTML=`Idle. Press <b>Run overnight</b>: the Planner splits 12 cases across 4 specialists, who spawn sub-agents per task.`;
+$("run").disabled=false;$("run").textContent="Run overnight";$("clockSub").textContent="staff leaving";$("modeChip").textContent="DEMO_MODE · scripted";
+setFollow(true);renderRows();renderStats();renderEsc();applyFilter();render();
+}
+/* ======================= staff tray ======================= */
+function renderEsc(){
+const list=CASES.filter(c=>state[c.id]==="esc"||handled[c.id]);
+$("esc").innerHTML=list.length?list.map(c=>handled[c.id]
+?`<div class="ecard ok"><b>${c.id} · ${esc(c.pt)}</b><p>${handled[c.id]}</p></div>`
+:`<div class="ecard"><b>${c.id} · ${esc(c.pt)}</b><p>${c.esc}</p><div class="act"><button data-id="${c.id}" data-a="fix">Fixed, send back to agents</button><button class="ghost" data-id="${c.id}" data-a="done">Mark handled</button></div></div>`).join("")
+:`<p class="empty">Nothing here yet. A case lands here only when an agent can't finish it on its own.</p>`;
+}
+$("esc").addEventListener("click",e=>{
+const b=e.target.closest("button");if(!b)return;const id=b.dataset.id,c=CASES.find(x=>x.id===id),cn=caseNode[id];
+if(b.dataset.a==="done"){handled[id]="Handled by staff.";log("Staff","Marked handled","o",id,"sf")}
+else{
+handled[id]="Sent back after the staff fix. Re-run passed the Verifier.";
+log("Staff","Fixed and sent back to agents","o",id,"sf");
+if(cn){let tail=cn;while(tail.children.filter(x=>!x.ghost).length)tail=tail.children.filter(x=>!x.ghost).slice(-1)[0];
+const re=mk("a",c.ag==="PriorAuth"?"PortalSubmitter":"Referral","re-run with staff fix",tail,{caseId:id,edge:"staff fix",status:"done"});
+const g=mk("g","Verifier","matches updated chart",re,{caseId:id,status:"done",why:"Re-checked after the staff fix."});
+mk("o",c.ag==="PriorAuth"?"Submitted":"Referral sent","after staff fix",g,{caseId:id,status:"done"});
+packet(tail,re,css("--ok"))}
+log(c.ag,"Re-ran with the staff fix → submitted","o",id,"sp");log("Verifier","✓ matches updated chart","o",id,"vf");
+n.hrs+=Math.round(c.mins*.7);
+}
+state[id]="done";n.esc--;n.done++;if(cn)cn.status="done";
+renderRows();renderStats();renderEsc();render();
+});
+/* ======================= controls ======================= */
+function setFollow(v){follow=v;$("follow").classList.toggle("on",v);$("follow").setAttribute("aria-pressed",v)}
+$("run").onclick=run;
+$("reset").onclick=()=>{Object.keys(handled).forEach(k=>delete handled[k]);hardReset()};
+$("speed").onclick=()=>{speed=speed===1?3:speed===3?8:1;$("speed").textContent=`Speed ${speed}×`};
+$("present").onclick=()=>{const on=document.body.classList.toggle("present");$("present").classList.toggle("on",on);$("present").setAttribute("aria-pressed",on);setTimeout(()=>fit(300),50)};
+$("follow").onclick=()=>{setFollow(!follow);if(follow)fit()};
+$("fit").onclick=()=>fit();
+$("collapseAll").onclick=()=>{setAll(true)};
+$("expandAll").onclick=()=>{setAll(false)};
+$("rows").addEventListener("click",e=>{const tr=e.target.closest("tr");if(!tr)return;filter=filter===tr.dataset.id?null:tr.dataset.id;applyFilter();if(filter&&caseNode[filter])select(caseNode[filter].id)});
+$("rows").addEventListener("keydown",e=>{if(e.key!=="Enter"&&e.key!==" ")return;const tr=e.target.closest("tr");if(!tr)return;e.preventDefault();filter=filter===tr.dataset.id?null:tr.dataset.id;applyFilter()});
+$("clearFilter").onclick=()=>{filter=null;applyFilter()};
+window.addEventListener("resize",()=>{if(follow)fit(200)});
+hardReset();
+</script>
+</body>
+</html>
