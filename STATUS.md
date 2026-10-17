@@ -38,7 +38,7 @@ Score = correct closes + correct escalations − over-escalations − 2·missed 
 ## What doesn't (yet)
 - **Haiku still over-escalates about 1 case in 12, at random:** the worker escalates work it could finish, or the Verifier fails a correct output on wording. That's the main source of the noise above.
 - **The first experiment found a CP-2205 data bug:** the chart changed between Planner and Verifier. It's fixed, and those runs are archived in `runs/pre-fix/`.
-- **No Nemotron runs at all:** tool-call reliability and the over-escalation rate on Nemotron are unknown.
+- **Nemotron is only lightly tested:** one full preview run plus a 3-case re-test. Its over-escalation rate and run-to-run noise are unknown, and the Version N+1 experiments haven't been run on it.
 - **Vercel Hobby limits a run to 300 s.** Keep CASE_CONCURRENCY at 4 or more for a full 20-case run.
 
 ## Commands
