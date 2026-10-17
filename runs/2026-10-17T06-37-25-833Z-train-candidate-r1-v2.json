@@ -1,0 +1,2022 @@
+{
+ "label": "train-candidate-r1",
+ "playbook": 2,
+ "models": {
+  "planner": "claude-haiku-5-5",
+  "worker": "claude-haiku-5-5",
+  "verifier": "claude-haiku-5-5",
+  "reviewer": "claude-haiku-5-5"
+ },
+ "formula": "closed_correct + escalated_correct − over_escalated − 2·missed_escalation − replans − loops",
+ "ms": 25481,
+ "cases": [
+  "PA-1042",
+  "PA-1043",
+  "PA-1045",
+  "CP-2201",
+  "CP-2203",
+  "CP-2204",
+  "DN-3307",
+  "DN-3309",
+  "DN-3311",
+  "RF-4410",
+  "RF-4412",
+  "RF-4413"
+ ],
+ "score": {
+  "score": 4,
+  "closed_correct": 7,
+  "escalated_correct": 3,
+  "over_escalated": 2,
+  "missed_escalation": 0,
+  "replans": 3,
+  "loops": 1,
+  "cases": 12
+ },
+ "results": [
+  {
+   "id": "PA-1042",
+   "expected": "closed",
+   "actual": "closed",
+   "replans": 0,
+   "loops": 0,
+   "failed": []
+  },
+  {
+   "id": "PA-1043",
+   "expected": "escalated",
+   "actual": "escalated",
+   "replans": 0,
+   "loops": 0,
+   "reason": "UnitedHealthcare requires a signed physician attestation. Agents never sign for a physician; the packet is pre-filled for Dr. Patel.",
+   "failed": []
+  },
+  {
+   "id": "PA-1045",
+   "expected": "closed",
+   "actual": "closed",
+   "replans": 1,
+   "loops": 0,
+   "failed": [
+    "The submit_auth call's args do not include the patient name Priya Shah (only case_id, payer, item, dose, and evidence), though the L20.9 diagnosis and dose are present and no requires_human flag was returned; the result is queued_for_release, but the patient identity is not shown in the submitted action."
+   ]
+  },
+  {
+   "id": "CP-2201",
+   "expected": "closed",
+   "actual": "closed",
+   "replans": 0,
+   "loops": 0,
+   "failed": []
+  },
+  {
+   "id": "CP-2203",
+   "expected": "closed",
+   "actual": "closed",
+   "replans": 0,
+   "loops": 0,
+   "failed": []
+  },
+  {
+   "id": "CP-2204",
+   "expected": "escalated",
+   "actual": "escalated",
+   "replans": 0,
+   "loops": 0,
+   "reason": "Lab result flagged for physician review. Agents never assess clinical content.",
+   "failed": []
+  },
+  {
+   "id": "DN-3307",
+   "expected": "closed",
+   "actual": "escalated",
+   "replans": 1,
+   "loops": 0,
+   "reason": "The CL-3307 resubmission (CLM-3307) has no rendering provider NPI, and the registry search for Sunrise Family Medicine returned no Family Medicine provider to verify, so staff must confirm the rendering provider's NPI and specialty before a corrected claim is sent.",
+   "failed": [
+    "The resubmitted claim does not show any rendering provider NPI, and the NPI registry returned no records, so a registry-consistent specialty cannot be verified."
+   ]
+  },
+  {
+   "id": "DN-3309",
+   "expected": "closed",
+   "actual": "closed",
+   "replans": 0,
+   "loops": 0,
+   "failed": []
+  },
+  {
+   "id": "DN-3311",
+   "expected": "closed",
+   "actual": "closed",
+   "replans": 0,
+   "loops": 0,
+   "failed": []
+  },
+  {
+   "id": "RF-4410",
+   "expected": "closed",
+   "actual": "escalated",
+   "replans": 1,
+   "loops": 0,
+   "reason": "Referral RF-4410 (Robert Haines, Aetna HMO, cardiology) cannot be completed with my tools: the chart has no referring provider NPI, the registry search for Sunrise Family Medicine returned only unrelated cardiology practices, and fax_send accepts no referring NPI, patient name, or subject fields. Staff should confirm the referring provider's NPI and the cover-sheet details, then decide whether to release or cancel the already-queued fax FAX-4410 to Bay Heart Associates (••3105) to avoid a duplicate, since resubmitting would duplicate it.",
+   "failed": [
+    "The outbound fax_send args and gate record contain no referring provider NPI at all, so there is no evidence that a referring provider with a consistent specialty is on the packet.",
+    "The fax_send args contain no patient name or subject field, and the result is queued_for_release with no requires_human flag, so the patient name and subject are not shown as part of the call."
+   ]
+  },
+  {
+   "id": "RF-4412",
+   "expected": "escalated",
+   "actual": "escalated",
+   "replans": 0,
+   "loops": 1,
+   "reason": "Loop detector stopped the case: fax_send called 3× with identical arguments. Last result: Line busy at Peninsula Ortho. Fax not sent. Staff to finish it.",
+   "failed": []
+  },
+  {
+   "id": "RF-4413",
+   "expected": "closed",
+   "actual": "closed",
+   "replans": 0,
+   "loops": 0,
+   "failed": []
+  }
+ ],
+ "events": [
+  {
+   "type": "run_start",
+   "goal": "Clear tonight's back-office backlog by 08:00. Administrative work only; staff only for what agents must not do.",
+   "cases": [
+    "PA-1042",
+    "CP-2201",
+    "DN-3307",
+    "RF-4410",
+    "PA-1043",
+    "DN-3309",
+    "CP-2203",
+    "RF-4412",
+    "PA-1045",
+    "CP-2204",
+    "RF-4413",
+    "DN-3311"
+   ],
+   "models": {
+    "planner": "claude-haiku-5-5",
+    "worker": "claude-haiku-5-5",
+    "verifier": "claude-haiku-5-5",
+    "reviewer": "claude-haiku-5-5"
+   },
+   "parallel": 6,
+   "playbook": 2
+  },
+  {
+   "type": "delegated",
+   "caseId": "PA-1042",
+   "agent": "PriorAuth"
+  },
+  {
+   "type": "delegated",
+   "caseId": "CP-2201",
+   "agent": "ChartPrep"
+  },
+  {
+   "type": "delegated",
+   "caseId": "DN-3307",
+   "agent": "Denials"
+  },
+  {
+   "type": "delegated",
+   "caseId": "RF-4410",
+   "agent": "Referral"
+  },
+  {
+   "type": "delegated",
+   "caseId": "PA-1043",
+   "agent": "PriorAuth"
+  },
+  {
+   "type": "delegated",
+   "caseId": "DN-3309",
+   "agent": "Denials"
+  },
+  {
+   "type": "checklist",
+   "caseId": "CP-2201",
+   "items": [
+    {
+     "id": "c1",
+     "check": "The pre-visit packet is prepared for patient James Okafor (synthetic) for the 2026-10-17 08:30 annual physical appointment, matching the chart appointment field.",
+     "evidence": "Chart: patient 'James Okafor (synthetic)', appointment '2026-10-17 08:30 annual physical'."
+    },
+    {
+     "id": "c2",
+     "check": "The packet's document list includes all six chart documents: visit notes dated 2026-03-11, 2026-06-02 and 2026-08-19; lab reports dated 2026-06-02 and 2026-08-19; and chest x-ray report dated 2026-06-05.",
+     "evidence": "Chart 'documents' array lists these six items with their dates."
+    },
+    {
+     "id": "c3",
+     "check": "The packet carries the registry flag 'colorectal screening overdue (quality registry)' exactly as written in the chart, without adding clinical interpretation or recommendations.",
+     "evidence": "Chart 'registry_flags' contains 'colorectal screening overdue (quality registry)'."
+    },
+    {
+     "id": "c4",
+     "check": "The packet is submitted via prepare_packet with no escalate_to_staff call needed for administrative items, or any escalation is made only if a tool result contains requires_human.",
+     "evidence": "Tool results from prepare_packet; escalation only if requires_human appears in a tool result."
+    }
+   ],
+   "ms": 2197
+  },
+  {
+   "type": "checklist",
+   "caseId": "DN-3307",
+   "items": [
+    {
+     "id": "c1",
+     "check": "The chart for CL-3307 shows a coding note documenting a separately identifiable E/M service on the same day as the ECG, supporting modifier 25 on 99214.",
+     "evidence": "chart.coding_note: 'Provider documented a separately identifiable E/M service on the same day as the ECG. Modifier 25 on 99214 is supported by the note.'"
+    },
+    {
+     "id": "c2",
+     "check": "The ERA for CL-3307 shows denial CO-97 on the 99214 line bundled with 93000 (ECG), matching the case denial reason.",
+     "evidence": "era.claim_id CL-3307, era.carc CO-97, era.description 'Payment included in another service: 99214 bundled with 93000 (ECG)', amount 186.4"
+    },
+    {
+     "id": "c3",
+     "check": "The corrected claim CL-3307 submitted to Medicare carries modifier 25 on 99214 and is resubmitted with the same claim ID CL-3307.",
+     "evidence": "submit_claim result for claim_id CL-3307 showing payer Medicare, CPT 99214 with modifier 25, status accepted/submitted"
+    },
+    {
+     "id": "c4",
+     "check": "The rendering provider NPI on the resubmitted claim belongs to a provider whose registry specialty is consistent with the E/M and ECG services billed.",
+     "evidence": "check_npi result for the rendering NPI on CL-3307 showing name, specialty, and active status"
+    }
+   ],
+   "ms": 2358
+  },
+  {
+   "type": "checklist",
+   "caseId": "RF-4410",
+   "items": [
+    {
+     "id": "c1",
+     "check": "The referral is sent by fax to a cardiology practice whose NPI registry entry shows specialty Cardiology and network status in-network for Aetna HMO; the preferred practice Bay Heart Associates is used if it qualifies, otherwise a qualifying in-network cardiology practice is used.",
+     "evidence": "check_npi result for the receiving practice (specialty, networks include Aetna HMO) and the fax_send recipient NPI on the outbound referral."
+    },
+    {
+     "id": "c2",
+     "check": "The referring provider NPI on the referral packet belongs to a provider whose registry specialty is consistent with the ordering referral from the chart.",
+     "evidence": "check_npi result for the referring NPI listed in the packet versus the chart referral_order specialty."
+    },
+    {
+     "id": "c3",
+     "check": "The fax packet includes all three required records named in the chart: ECG dated 2026-09-28, visit note dated 2026-09-28, and visit note dated 2026-10-02.",
+     "evidence": "fax_send packet contents matched against chart required_records list."
+    },
+    {
+     "id": "c4",
+     "check": "The outbound fax_send call completes successfully with the patient name Robert Haines and the cardiology referral as the subject, with no requires_human flag returned.",
+     "evidence": "fax_send tool result status and absence of requires_human in the result."
+    }
+   ],
+   "ms": 2426
+  },
+  {
+   "type": "checklist",
+   "caseId": "PA-1043",
+   "items": [
+    {
+     "id": "c1",
+     "check": "The chart shows the payer as UnitedHealthcare and the order as MRI lumbar spine without contrast, matching the prior authorization request for case PA-1043.",
+     "evidence": "read_chart: payer=UnitedHealthcare, order=MRI lumbar spine without contrast."
+    },
+    {
+     "id": "c2",
+     "check": "The payer criteria for UnitedHealthcare MRI lumbar spine are reviewed and the requirement for a signed physician attestation is identified as unmet, since physician_attestation_on_file is false.",
+     "evidence": "payer_criteria: requires signed physician attestation; read_chart: physician_attestation_on_file=false."
+    },
+    {
+     "id": "c3",
+     "check": "No prior authorization is submitted to UnitedHealthcare as complete while the signed physician attestation is missing; the case is routed to staff via escalate_to_staff with the requires_human reason that Dr. Patel must sign the pre-filled packet.",
+     "evidence": "payer_criteria.requires_human: agents never sign for a physician; escalate_to_staff call record shows the case routed to staff."
+    },
+    {
+     "id": "c4",
+     "check": "The escalation or submission record for PA-1043 contains only chart-copied values (patient name, payer, order) and does not contain any attestation signature or physician attestation entered by the agent.",
+     "evidence": "submit_auth or escalate_to_staff payload fields match read_chart values; no attestation field marked as signed."
+    }
+   ],
+   "ms": 2832
+  },
+  {
+   "type": "tool_call",
+   "caseId": "CP-2201",
+   "tool": "read_chart",
+   "args": {
+    "case_id": "CP-2201"
+   },
+   "status": "ok",
+   "result": {
+    "case_id": "CP-2201",
+    "patient": "James Okafor (synthetic)",
+    "appointment": "2026-10-17 08:30 annual physical",
+    "documents": [
+     "visit note 2026-03-11",
+     "visit note 2026-06-02",
+     "visit note 2026-08-19",
+     "lab report 2026-06-02",
+     "lab report 2026-08-19",
+     "chest x-ray report 2026-06-05"
+    ],
+    "registry_flags": [
+     "colorectal screening overdue (quality registry)"
+    ]
+   },
+   "step": 1
+  },
+  {
+   "type": "tool_call",
+   "caseId": "RF-4410",
+   "tool": "read_chart",
+   "args": {
+    "case_id": "RF-4410"
+   },
+   "status": "ok",
+   "result": {
+    "case_id": "RF-4410",
+    "patient": "Robert Haines (synthetic)",
+    "payer": "Aetna HMO",
+    "referral_order": {
+     "specialty": "Cardiology",
+     "preferred_practice": "Bay Heart Associates"
+    },
+    "required_records": [
+     "ECG 2026-09-28",
+     "visit note 2026-09-28",
+     "visit note 2026-10-02"
+    ]
+   },
+   "step": 1
+  },
+  {
+   "type": "checklist",
+   "caseId": "PA-1042",
+   "items": [
+    {
+     "id": "c1",
+     "check": "The submit_auth request for PA-1042 is filed to Blue Shield CA for Ozempic 0.5 mg weekly under member ID BSC-55102931 for patient Maria Delgado.",
+     "evidence": "Chart: payer Blue Shield CA, member_id BSC-55102931, order Ozempic 0.5 mg weekly, patient Maria Delgado (synthetic); submit_auth result shows the request was accepted with no requires_human flag."
+    },
+    {
+     "id": "c2",
+     "check": "The submitted auth lists E11.9 Type 2 diabetes as the supporting diagnosis, matching the diagnosis on file.",
+     "evidence": "Chart diagnoses_on_file: E11.9 Type 2 diabetes; payer_criteria requires 'Type 2 diabetes diagnosis on file'."
+    },
+    {
+     "id": "c3",
+     "check": "The submitted auth cites metformin therapy since 2025-08 (14 months), satisfying the payer's requirement of at least 3 months of metformin.",
+     "evidence": "Chart medication_history: 'metformin since 2025-08 (14 months)'; payer_criteria requires 'metformin trial of at least 3 months documented'."
+    },
+    {
+     "id": "c4",
+     "check": "The submitted auth cites the A1c of 8.4% dated 2026-09-30, which is within 90 days of today (2026-10-16) and meets the 7.0% threshold.",
+     "evidence": "Chart documented_results: A1c 8.4% dated 2026-09-30; payer_criteria requires A1c of 7.0% or higher dated within 90 days."
+    },
+    {
+     "id": "c5",
+     "check": "If any criterion were unmet, the case is escalated to staff rather than submitted; in this chart all three criteria are documented, so no escalate_to_staff hand-off is needed for criteria gaps.",
+     "evidence": "Chart and payer_criteria: all three required items (T2D diagnosis, metformin ≥3 months, A1c ≥7.0% within 90 days) are present in the chart."
+    }
+   ],
+   "ms": 3056
+  },
+  {
+   "type": "tool_call",
+   "caseId": "DN-3307",
+   "tool": "read_chart",
+   "args": {
+    "case_id": "DN-3307"
+   },
+   "status": "ok",
+   "result": {
+    "case_id": "DN-3307",
+    "patient": "Linda Chen (synthetic)",
+    "payer": "Medicare",
+    "claim_id": "CL-3307",
+    "coding_note": "Provider documented a separately identifiable E/M service on the same day as the ECG. Modifier 25 on 99214 is supported by the note."
+   },
+   "step": 1
+  },
+  {
+   "type": "tool_call",
+   "caseId": "DN-3307",
+   "tool": "read_era",
+   "args": {
+    "claim_id": "CL-3307"
+   },
+   "status": "ok",
+   "result": {
+    "claim_id": "CL-3307",
+    "carc": "CO-97",
+    "description": "Payment included in another service: 99214 bundled with 93000 (ECG)",
+    "amount": 186.4
+   },
+   "step": 2
+  },
+  {
+   "type": "checklist",
+   "caseId": "DN-3309",
+   "items": [
+    {
+     "id": "c1",
+     "check": "The appeal submission for claim CL-3309 is sent to Anthem (submit_claim call made for CL-3309) and its content cites the CO-50 denial reason for the MRI lumbar.",
+     "evidence": "ERA for CL-3309 shows CARC CO-50, 'Not deemed a medical necessity by the payer: MRI lumbar', amount 1410; the submit_claim record for CL-3309 references this denial."
+    },
+    {
+     "id": "c2",
+     "check": "The appeal states the payer criterion from Anthem payer_criteria for MRI lumbar: at least 6 weeks of documented conservative therapy before imaging.",
+     "evidence": "payer_criteria for Anthem, item MRI lumbar, requires 'at least 6 weeks of documented conservative therapy before imaging'; appeal text includes this requirement."
+    },
+    {
+     "id": "c3",
+     "check": "The appeal lists the chart documentation of conservative therapy that meets the 6-week requirement: physical therapy notes covering 6 weeks (2026-05 to 2026-06), with the MRI lumbar report dated 2026-07-21 and the pain management note dated 2026-06-30 as supporting attachments.",
+     "evidence": "Chart documents_on_file: 'physical therapy notes 6 weeks (2026-05 to 2026-06)', 'MRI lumbar report 2026-07-21', 'pain management note 2026-06-30', 'visit note 2026-07-14'."
+    },
+    {
+     "id": "c4",
+     "check": "The appeal is submitted only if the chart supports it; if the therapy documentation does not meet the 6-week requirement, no submit_claim appeal is sent and the case is routed to staff via escalate_to_staff instead.",
+     "evidence": "Chart physical therapy notes span 2026-05 to 2026-06 (6 weeks) per documents_on_file; any shortfall is recorded in the escalate_to_staff record for CL-3309."
+    }
+   ],
+   "ms": 3180
+  },
+  {
+   "type": "tool_call",
+   "caseId": "RF-4410",
+   "tool": "check_npi",
+   "args": {
+    "name": "Bay Heart Associates",
+    "specialty": "Cardiology"
+   },
+   "status": "ok",
+   "result": {
+    "query": {
+     "name": "Bay Heart Associates",
+     "specialty": "Cardiology"
+    },
+    "matches": [
+     {
+      "npi": "••3105",
+      "name": "Bay Heart Associates",
+      "specialty": "Cardiology",
+      "city": "San Francisco",
+      "networks": [
+       "Aetna HMO",
+       "Medicare"
+      ]
+     },
+     {
+      "npi": "••3190",
+      "name": "Mission Cardiology Group",
+      "specialty": "Cardiology",
+      "city": "San Francisco",
+      "networks": [
+       "Blue Shield PPO"
+      ]
+     }
+    ]
+   },
+   "step": 2
+  },
+  {
+   "type": "tool_call",
+   "caseId": "PA-1043",
+   "tool": "read_chart",
+   "args": {
+    "case_id": "PA-1043"
+   },
+   "status": "ok",
+   "result": {
+    "case_id": "PA-1043",
+    "patient": "Aisha Rahman (synthetic)",
+    "payer": "UnitedHealthcare",
+    "order": "MRI lumbar spine without contrast",
+    "physician_attestation_on_file": false
+   },
+   "step": 1
+  },
+  {
+   "type": "tool_call",
+   "caseId": "PA-1043",
+   "tool": "payer_criteria",
+   "args": {
+    "payer": "UnitedHealthcare",
+    "item": "MRI lumbar spine without contrast"
+   },
+   "status": "ok",
+   "result": {
+    "payer": "UnitedHealthcare",
+    "item": "MRI lumbar spine",
+    "requires": [
+     "signed physician attestation"
+    ],
+    "requires_human": "UnitedHealthcare requires a signed physician attestation. Agents never sign for a physician; the packet is pre-filled for Dr. Patel."
+   },
+   "step": 2
+  },
+  {
+   "type": "escalated",
+   "caseId": "PA-1043",
+   "reason": "UnitedHealthcare requires a signed physician attestation. Agents never sign for a physician; the packet is pre-filled for Dr. Patel.",
+   "by": "rule"
+  },
+  {
+   "type": "delegated",
+   "caseId": "CP-2203",
+   "agent": "ChartPrep"
+  },
+  {
+   "type": "tool_call",
+   "caseId": "PA-1042",
+   "tool": "read_chart",
+   "args": {
+    "case_id": "PA-1042"
+   },
+   "status": "ok",
+   "result": {
+    "case_id": "PA-1042",
+    "patient": "Maria Delgado (synthetic)",
+    "payer": "Blue Shield CA",
+    "member_id": "BSC-55102931",
+    "order": "Ozempic 0.5 mg weekly",
+    "diagnoses_on_file": [
+     "E11.9 Type 2 diabetes"
+    ],
+    "medication_history": [
+     "metformin since 2025-08 (14 months)"
+    ],
+    "documented_results": [
+     {
+      "test": "A1c",
+      "value": "8.4%",
+      "date": "2026-09-30"
+     }
+    ]
+   },
+   "step": 1
+  },
+  {
+   "type": "tool_call",
+   "caseId": "PA-1042",
+   "tool": "payer_criteria",
+   "args": {
+    "payer": "Blue Shield CA",
+    "item": "Ozempic"
+   },
+   "status": "ok",
+   "result": {
+    "payer": "Blue Shield CA",
+    "item": "Ozempic",
+    "requires": [
+     "Type 2 diabetes diagnosis on file",
+     "metformin trial of at least 3 months documented",
+     "A1c of 7.0% or higher dated within 90 days"
+    ]
+   },
+   "step": 2
+  },
+  {
+   "type": "tool_call",
+   "caseId": "CP-2201",
+   "tool": "prepare_packet",
+   "args": {
+    "case_id": "CP-2201",
+    "items": [
+     "Patient: James Okafor (synthetic)",
+     "Appointment: 2026-10-17 08:30 annual physical",
+     "Document: visit note 2026-03-11",
+     "Document: visit note 2026-06-02",
+     "Document: visit note 2026-08-19",
+     "Document: lab report 2026-06-02",
+     "Document: lab report 2026-08-19",
+     "Document: chest x-ray report 2026-06-05",
+     "Registry flag: colorectal screening overdue (quality registry)"
+    ]
+   },
+   "status": "ok",
+   "result": {
+    "status": "saved",
+    "items": 9
+   },
+   "step": 2
+  },
+  {
+   "type": "tool_call",
+   "caseId": "DN-3309",
+   "tool": "read_chart",
+   "args": {
+    "case_id": "DN-3309"
+   },
+   "status": "ok",
+   "result": {
+    "case_id": "DN-3309",
+    "patient": "Victor Nguyen (synthetic)",
+    "payer": "Anthem",
+    "claim_id": "CL-3309",
+    "documents_on_file": [
+     "MRI lumbar report 2026-07-21",
+     "physical therapy notes 6 weeks (2026-05 to 2026-06)",
+     "pain management note 2026-06-30",
+     "visit note 2026-07-14"
+    ]
+   },
+   "step": 1
+  },
+  {
+   "type": "tool_call",
+   "caseId": "DN-3309",
+   "tool": "read_era",
+   "args": {
+    "claim_id": "CL-3309"
+   },
+   "status": "ok",
+   "result": {
+    "claim_id": "CL-3309",
+    "carc": "CO-50",
+    "description": "Not deemed a medical necessity by the payer: MRI lumbar",
+    "amount": 1410
+   },
+   "step": 2
+  },
+  {
+   "type": "tool_call",
+   "caseId": "DN-3309",
+   "tool": "payer_criteria",
+   "args": {
+    "payer": "Anthem",
+    "item": "MRI lumbar"
+   },
+   "status": "ok",
+   "result": {
+    "payer": "Anthem",
+    "item": "MRI lumbar",
+    "requires": [
+     "at least 6 weeks of documented conservative therapy before imaging"
+    ]
+   },
+   "step": 3
+  },
+  {
+   "type": "tool_call",
+   "caseId": "RF-4410",
+   "tool": "fax_send",
+   "args": {
+    "to_npi": "••3105",
+    "documents": [
+     "ECG 2026-09-28",
+     "visit note 2026-09-28",
+     "visit note 2026-10-02"
+    ]
+   },
+   "status": "ok",
+   "result": {
+    "status": "queued_for_release",
+    "reference": "FAX-4410",
+    "note": "Accepted by the outbound gate. Released to the recipient automatically once the Verifier passes this case; this is the correct final state."
+   },
+   "step": 3
+  },
+  {
+   "type": "tool_call",
+   "caseId": "PA-1042",
+   "tool": "submit_auth",
+   "args": {
+    "case_id": "PA-1042",
+    "payer": "Blue Shield CA",
+    "item": "Ozempic",
+    "dose": "0.5 mg weekly",
+    "evidence": [
+     "Diagnosis on file: E11.9 Type 2 diabetes (meets: Type 2 diabetes diagnosis on file)",
+     "Medication history: metformin since 2025-08, 14 months (meets: metformin trial of at least 3 months documented)",
+     "A1c 8.4% dated 2026-09-30, within 90 days of 2026-10-16 (meets: A1c of 7.0% or higher dated within 90 days)",
+     "Member ID BSC-55102931; patient Maria Delgado"
+    ]
+   },
+   "status": "error",
+   "result": {
+    "error": "504 Gateway Timeout from Blue Shield CA payer portal. Nothing was submitted; safe to retry."
+   },
+   "step": 3
+  },
+  {
+   "type": "tool_call",
+   "caseId": "DN-3307",
+   "tool": "submit_claim",
+   "args": {
+    "claim_id": "CL-3307",
+    "action": "resubmit",
+    "changes": [
+     "99214 modifier=25 added (separately identifiable E/M on same day as 93000 ECG, per chart coding note)",
+     "Claim ID unchanged: CL-3307",
+     "Payer: Medicare",
+     "Denial corrected: CO-97 on 99214 bundled with 93000"
+    ]
+   },
+   "status": "ok",
+   "result": {
+    "status": "queued_for_release",
+    "reference": "CLM-3307",
+    "note": "Accepted by the outbound gate. Released to the recipient automatically once the Verifier passes this case; this is the correct final state."
+   },
+   "step": 3
+  },
+  {
+   "type": "checklist",
+   "caseId": "CP-2203",
+   "items": [
+    {
+     "id": "c1",
+     "check": "The new-patient packet lists both imported documents by name exactly as in the chart: 'outside records PDF (Dr. Ames, 2025)' and 'outside records PDF (urgent care, 2026-04)'.",
+     "evidence": "Chart field imported_documents lists these two entries."
+    },
+    {
+     "id": "c2",
+     "check": "The packet's medication list matches the chart exactly and unchanged: atorvastatin 20 mg daily; atorvastatin 20 mg daily (duplicate entry from import); levothyroxine 50 mcg daily.",
+     "evidence": "Chart field medication_list; the medication list was not edited, per the goal."
+    },
+    {
+     "id": "c3",
+     "check": "The second atorvastatin 20 mg daily entry is marked as a duplicate within the packet, identifying it as the duplicate import entry.",
+     "evidence": "Chart medication_list entry 'atorvastatin 20 mg daily (duplicate entry from import)'; packet annotation produced by prepare_packet."
+    },
+    {
+     "id": "c4",
+     "check": "The packet is prepared for the patient Sofia Rossi (synthetic) with the appointment 2026-10-17 10:00 new patient.",
+     "evidence": "Chart fields patient and appointment."
+    },
+    {
+     "id": "c5",
+     "check": "No escalation to staff was raised for this case, since the goal is completing the packet marking only.",
+     "evidence": "escalate_to_staff not invoked; goal states do not escalate."
+    }
+   ],
+   "ms": 2361
+  },
+  {
+   "type": "tool_call",
+   "caseId": "CP-2203",
+   "tool": "read_chart",
+   "args": {
+    "case_id": "CP-2203"
+   },
+   "status": "ok",
+   "result": {
+    "case_id": "CP-2203",
+    "patient": "Sofia Rossi (synthetic)",
+    "appointment": "2026-10-17 10:00 new patient",
+    "imported_documents": [
+     "outside records PDF (Dr. Ames, 2025)",
+     "outside records PDF (urgent care, 2026-04)"
+    ],
+    "medication_list": [
+     "atorvastatin 20 mg daily",
+     "atorvastatin 20 mg daily (duplicate entry from import)",
+     "levothyroxine 50 mcg daily"
+    ]
+   },
+   "step": 1
+  },
+  {
+   "type": "tool_call",
+   "caseId": "PA-1042",
+   "tool": "submit_auth",
+   "args": {
+    "case_id": "PA-1042",
+    "payer": "Blue Shield CA",
+    "item": "Ozempic",
+    "dose": "0.5 mg weekly",
+    "evidence": [
+     "Diagnosis on file: E11.9 Type 2 diabetes (meets: Type 2 diabetes diagnosis on file)",
+     "Medication history: metformin since 2025-08, 14 months (meets: metformin trial of at least 3 months documented)",
+     "A1c 8.4% dated 2026-09-30, within 90 days of 2026-10-16 (meets: A1c of 7.0% or higher dated within 90 days)",
+     "Member ID BSC-55102931; patient Maria Delgado"
+    ]
+   },
+   "status": "ok",
+   "result": {
+    "status": "queued_for_release",
+    "reference": "AUTH-1042",
+    "note": "Accepted by the outbound gate. Released to the recipient automatically once the Verifier passes this case; this is the correct final state."
+   },
+   "step": 4
+  },
+  {
+   "type": "tool_call",
+   "caseId": "DN-3309",
+   "tool": "submit_claim",
+   "args": {
+    "claim_id": "CL-3309",
+    "action": "appeal",
+    "changes": [
+     "Denial reason: CO-50, not deemed medical necessity: MRI lumbar (claim CL-3309, $1,410).",
+     "Anthem criterion for MRI lumbar: at least 6 weeks of documented conservative therapy before imaging.",
+     "Chart documentation meeting the criterion: physical therapy notes covering 6 weeks (2026-05 to 2026-06), completed before the MRI lumbar performed 2026-07-21.",
+     "Supporting documentation: MRI lumbar report dated 2026-07-21; pain management note dated 2026-06-30.",
+     "Request: reconsider medical necessity determination and reprocess CL-3309 for payment."
+    ],
+    "attachments": [
+     "Physical therapy notes, 6 weeks (2026-05 to 2026-06)",
+     "MRI lumbar report (2026-07-21)",
+     "Pain management note (2026-06-30)"
+    ]
+   },
+   "status": "ok",
+   "result": {
+    "status": "queued_for_release",
+    "reference": "CLM-3309",
+    "note": "Accepted by the outbound gate. Released to the recipient automatically once the Verifier passes this case; this is the correct final state."
+   },
+   "step": 4
+  },
+  {
+   "type": "check_result",
+   "caseId": "CP-2201",
+   "round": 1,
+   "pass": true,
+   "verdicts": [
+    {
+     "check": "The pre-visit packet is prepared for patient James Okafor (synthetic) for the 2026-10-17 08:30 annual physical appointment, matching the chart appointment field.",
+     "pass": true,
+     "reason": "The outbound gate packet PKT-CP-2201 lists 'Patient: James Okafor (synthetic)' and 'Appointment: 2026-10-17 08:30 annual physical', which matches the chart's appointment field exactly."
+    },
+    {
+     "check": "The packet's document list includes all six chart documents: visit notes dated 2026-03-11, 2026-06-02 and 2026-08-19; lab reports dated 2026-06-02 and 2026-08-19; and chest x-ray report dated 2026-06-05.",
+     "pass": true,
+     "reason": "The outbound packet includes all three visit notes, both lab reports, and the chest x-ray report dated 2026-06-05, matching the six chart documents."
+    },
+    {
+     "check": "The packet carries the registry flag 'colorectal screening overdue (quality registry)' exactly as written in the chart, without adding clinical interpretation or recommendations.",
+     "pass": true,
+     "reason": "The packet item reads 'Registry flag: colorectal screening overdue (quality registry)', carrying the chart text verbatim with no added interpretation or recommendation."
+    },
+    {
+     "check": "The packet is submitted via prepare_packet with no escalate_to_staff call needed for administrative items, or any escalation is made only if a tool result contains requires_human.",
+     "pass": true,
+     "reason": "The tool log shows prepare_packet returned status 'saved' with no requires_human flag and no escalate_to_staff call was made, and the packet is queued at the outbound gate as PKT-CP-2201."
+    }
+   ],
+   "ms": 2851
+  },
+  {
+   "type": "closed",
+   "caseId": "CP-2201",
+   "summary": "The pre-visit packet for James Okafor (synthetic) for the 2026-10-17 08:30 annual physical is saved for case CP-2201. It lists all six chart documents and the registry flag \"colorectal screening overdue (quality registry)\" exactly as written, with no escalation needed.",
+   "value": 0,
+   "released": [
+    "PKT-CP-2201"
+   ]
+  },
+  {
+   "type": "delegated",
+   "caseId": "RF-4412",
+   "agent": "Referral"
+  },
+  {
+   "type": "tool_call",
+   "caseId": "CP-2203",
+   "tool": "prepare_packet",
+   "args": {
+    "case_id": "CP-2203",
+    "items": [
+     "Patient: Sofia Rossi (synthetic)",
+     "Appointment: 2026-10-17 10:00 new patient",
+     "Imported document: outside records PDF (Dr. Ames, 2025)",
+     "Imported document: outside records PDF (urgent care, 2026-04)",
+     "Medication list (as recorded in chart, unchanged): atorvastatin 20 mg daily",
+     "Medication list (as recorded in chart, unchanged): atorvastatin 20 mg daily (duplicate entry from import) — DUPLICATE: this is the duplicate import entry of atorvastatin 20 mg daily",
+     "Medication list (as recorded in chart, unchanged): levothyroxine 50 mcg daily"
+    ]
+   },
+   "status": "ok",
+   "result": {
+    "status": "saved",
+    "items": 7
+   },
+   "step": 2
+  },
+  {
+   "type": "check_result",
+   "caseId": "RF-4410",
+   "round": 1,
+   "pass": false,
+   "verdicts": [
+    {
+     "check": "The referral is sent by fax to a cardiology practice whose NPI registry entry shows specialty Cardiology and network status in-network for Aetna HMO; the preferred practice Bay Heart Associates is used if it qualifies, otherwise a qualifying in-network cardiology practice is used.",
+     "pass": true,
+     "reason": "The fax goes to ••3105 (Bay Heart Associates), whose registry entry shows specialty Cardiology and networks including Aetna HMO, so the preferred practice qualifies and is used."
+    },
+    {
+     "check": "The referring provider NPI on the referral packet belongs to a provider whose registry specialty is consistent with the ordering referral from the chart.",
+     "pass": false,
+     "reason": "The outbound fax_send args and gate record contain no referring provider NPI at all, so there is no evidence that a referring provider with a consistent specialty is on the packet."
+    },
+    {
+     "check": "The fax packet includes all three required records named in the chart: ECG dated 2026-09-28, visit note dated 2026-09-28, and visit note dated 2026-10-02.",
+     "pass": true,
+     "reason": "The documents list in the outbound gate entry FAX-4410 contains ECG 2026-09-28, visit note 2026-09-28, and visit note 2026-10-02, matching the chart's required_records."
+    },
+    {
+     "check": "The outbound fax_send call completes successfully with the patient name Robert Haines and the cardiology referral as the subject, with no requires_human flag returned.",
+     "pass": false,
+     "reason": "The fax_send args contain no patient name or subject field, and the result is queued_for_release with no requires_human flag, so the patient name and subject are not shown as part of the call."
+    }
+   ],
+   "ms": 2774
+  },
+  {
+   "type": "replan",
+   "caseId": "RF-4410",
+   "round": 1,
+   "failed": [
+    {
+     "check": "The referring provider NPI on the referral packet belongs to a provider whose registry specialty is consistent with the ordering referral from the chart.",
+     "pass": false,
+     "reason": "The outbound fax_send args and gate record contain no referring provider NPI at all, so there is no evidence that a referring provider with a consistent specialty is on the packet."
+    },
+    {
+     "check": "The outbound fax_send call completes successfully with the patient name Robert Haines and the cardiology referral as the subject, with no requires_human flag returned.",
+     "pass": false,
+     "reason": "The fax_send args contain no patient name or subject field, and the result is queued_for_release with no requires_human flag, so the patient name and subject are not shown as part of the call."
+    }
+   ]
+  },
+  {
+   "type": "checklist",
+   "caseId": "RF-4412",
+   "items": [
+    {
+     "id": "c1",
+     "check": "The referral fax is sent to Peninsula Ortho (the preferred practice on the referral order), and the fax recipient matches that practice.",
+     "evidence": "Chart referral_order.preferred_practice = Peninsula Ortho; fax_send result shows recipient Peninsula Ortho."
+    },
+    {
+     "id": "c2",
+     "check": "The receiving Peninsula Ortho provider's NPI, looked up in the registry, has an orthopedics specialty matching the referral specialty.",
+     "evidence": "Chart referral_order.specialty = Orthopedics; check_npi result for the Peninsula Ortho provider shows specialty Orthopedics."
+    },
+    {
+     "id": "c3",
+     "check": "The fax packet includes the knee X-ray report dated 2026-10-03 listed in the chart's required_records.",
+     "evidence": "Chart required_records item 1 'knee X-ray report 2026-10-03'; fax_send packet attachments list this document."
+    },
+    {
+     "id": "c4",
+     "check": "The fax packet includes the visit note dated 2026-10-03 listed in the chart's required_records.",
+     "evidence": "Chart required_records item 2 'visit note 2026-10-03'; fax_send packet attachments list this document."
+    },
+    {
+     "id": "c5",
+     "check": "The fax_send for case RF-4412 completes with a successful status, and the patient identified on the packet is Frank Wilson, payer Blue Shield PPO, matching the chart.",
+     "evidence": "fax_send result status success; packet header patient Frank Wilson and payer Blue Shield PPO match chart.patient and chart.payer."
+    }
+   ],
+   "ms": 2490
+  },
+  {
+   "type": "check_result",
+   "caseId": "DN-3309",
+   "round": 1,
+   "pass": true,
+   "verdicts": [
+    {
+     "check": "The appeal submission for claim CL-3309 is sent to Anthem (submit_claim call made for CL-3309) and its content cites the CO-50 denial reason for the MRI lumbar.",
+     "pass": true,
+     "reason": "The tool log shows a submit_claim call for CL-3309 action appeal, queued_for_release at the outbound gate, and its changes cite 'CO-50, not deemed medical necessity: MRI lumbar'."
+    },
+    {
+     "check": "The appeal states the payer criterion from Anthem payer_criteria for MRI lumbar: at least 6 weeks of documented conservative therapy before imaging.",
+     "pass": true,
+     "reason": "The appeal text states 'Anthem criterion for MRI lumbar: at least 6 weeks of documented conservative therapy before imaging', matching the payer_criteria result."
+    },
+    {
+     "check": "The appeal lists the chart documentation of conservative therapy that meets the 6-week requirement: physical therapy notes covering 6 weeks (2026-05 to 2026-06), with the MRI lumbar report dated 2026-07-21 and the pain management note dated 2026-06-30 as supporting attachments.",
+     "pass": true,
+     "reason": "The appeal lists physical therapy notes covering 6 weeks (2026-05 to 2026-06) as meeting the criterion, and attaches the MRI lumbar report (2026-07-21) and pain management note (2026-06-30) as supporting documentation, all matching the chart's documents on file."
+    },
+    {
+     "check": "The appeal is submitted only if the chart supports it; if the therapy documentation does not meet the 6-week requirement, no submit_claim appeal is sent and the case is routed to staff via escalate_to_staff instead.",
+     "pass": true,
+     "reason": "The chart documents 6 weeks of physical therapy (2026-05 to 2026-06) before the 2026-07-21 MRI, which meets the requirement, so the appeal was correctly submitted and no escalation was needed."
+    }
+   ],
+   "ms": 2526
+  },
+  {
+   "type": "closed",
+   "caseId": "DN-3309",
+   "summary": "DN-3309: I queued an appeal for claim CL-3309 to Anthem (reference CLM-3309) citing the CO-50 denial, the 6-week conservative-therapy criterion, and the 6 weeks of physical therapy notes (2026-05 to 2026-06) that precede the 2026-07-21 MRI, with the MRI report and 2026-06-30 pain management note attached; it awaits Verifier release.",
+   "value": 1410,
+   "released": [
+    "CLM-3309"
+   ]
+  },
+  {
+   "type": "delegated",
+   "caseId": "PA-1045",
+   "agent": "PriorAuth"
+  },
+  {
+   "type": "check_result",
+   "caseId": "PA-1042",
+   "round": 1,
+   "pass": true,
+   "verdicts": [
+    {
+     "check": "The submit_auth request for PA-1042 is filed to Blue Shield CA for Ozempic 0.5 mg weekly under member ID BSC-55102931 for patient Maria Delgado.",
+     "pass": true,
+     "reason": "The outbound gate holds the submit_auth for case PA-1042 with payer Blue Shield CA, item Ozempic, dose 0.5 mg weekly, member ID BSC-55102931, patient Maria Delgado, in queued_for_release status (the earlier 504 attempt submitted nothing)."
+    },
+    {
+     "check": "The submitted auth lists E11.9 Type 2 diabetes as the supporting diagnosis, matching the diagnosis on file.",
+     "pass": true,
+     "reason": "The submitted evidence cites 'Diagnosis on file: E11.9 Type 2 diabetes', which matches the chart's diagnoses_on_file and the payer's Type 2 diabetes requirement."
+    },
+    {
+     "check": "The submitted auth cites metformin therapy since 2025-08 (14 months), satisfying the payer's requirement of at least 3 months of metformin.",
+     "pass": true,
+     "reason": "The submitted evidence states 'metformin since 2025-08, 14 months', matching the chart medication history and the payer's at-least-3-month metformin requirement."
+    },
+    {
+     "check": "The submitted auth cites the A1c of 8.4% dated 2026-09-30, which is within 90 days of today (2026-10-16) and meets the 7.0% threshold.",
+     "pass": true,
+     "reason": "The submitted evidence cites 'A1c 8.4% dated 2026-09-30, within 90 days of 2026-10-16', matching the chart's documented result and the payer's 7.0% threshold within 90 days (16 days elapsed)."
+    },
+    {
+     "check": "If any criterion were unmet, the case is escalated to staff rather than submitted; in this chart all three criteria are documented, so no escalate_to_staff hand-off is needed for criteria gaps.",
+     "pass": true,
+     "reason": "All three payer criteria are documented in the chart, no criterion is unmet, and no escalate_to_staff or requires_human result appears in the tool log."
+    }
+   ],
+   "ms": 2701
+  },
+  {
+   "type": "closed",
+   "caseId": "PA-1042",
+   "summary": "PA-1042 prior authorization for Ozempic 0.5 mg weekly was submitted to Blue Shield CA (reference AUTH-1042) and is queued for release after Verifier review; all three payer criteria are documented in the chart (E11.9 diagnosis, metformin since 2025-08, A1c 8.4% on 2026-09-30), so no staff escalation was needed.",
+   "value": 2940,
+   "released": [
+    "AUTH-1042"
+   ]
+  },
+  {
+   "type": "delegated",
+   "caseId": "CP-2204",
+   "agent": "ChartPrep"
+  },
+  {
+   "type": "tool_call",
+   "caseId": "RF-4412",
+   "tool": "read_chart",
+   "args": {
+    "case_id": "RF-4412"
+   },
+   "status": "ok",
+   "result": {
+    "case_id": "RF-4412",
+    "patient": "Frank Wilson (synthetic)",
+    "payer": "Blue Shield PPO",
+    "referral_order": {
+     "specialty": "Orthopedics",
+     "preferred_practice": "Peninsula Ortho"
+    },
+    "required_records": [
+     "knee X-ray report 2026-10-03",
+     "visit note 2026-10-03"
+    ]
+   },
+   "step": 1
+  },
+  {
+   "type": "check_result",
+   "caseId": "DN-3307",
+   "round": 1,
+   "pass": false,
+   "verdicts": [
+    {
+     "check": "The chart for CL-3307 shows a coding note documenting a separately identifiable E/M service on the same day as the ECG, supporting modifier 25 on 99214.",
+     "pass": true,
+     "reason": "The chart's coding note states the provider documented a separately identifiable E/M service on the same day as the ECG and that modifier 25 on 99214 is supported."
+    },
+    {
+     "check": "The ERA for CL-3307 shows denial CO-97 on the 99214 line bundled with 93000 (ECG), matching the case denial reason.",
+     "pass": true,
+     "reason": "The ERA for CL-3307 shows CARC CO-97 with description 99214 bundled with 93000 (ECG), matching the case denial reason."
+    },
+    {
+     "check": "The corrected claim CL-3307 submitted to Medicare carries modifier 25 on 99214 and is resubmitted with the same claim ID CL-3307.",
+     "pass": true,
+     "reason": "The outbound gate holds the resubmit action for claim CL-3307 to Medicare with 99214 modifier=25 added and claim ID unchanged, status queued_for_release."
+    },
+    {
+     "check": "The rendering provider NPI on the resubmitted claim belongs to a provider whose registry specialty is consistent with the E/M and ECG services billed.",
+     "pass": false,
+     "reason": "The resubmitted claim does not show any rendering provider NPI, and the NPI registry returned no records, so a registry-consistent specialty cannot be verified."
+    }
+   ],
+   "ms": 2290
+  },
+  {
+   "type": "replan",
+   "caseId": "DN-3307",
+   "round": 1,
+   "failed": [
+    {
+     "check": "The rendering provider NPI on the resubmitted claim belongs to a provider whose registry specialty is consistent with the E/M and ECG services billed.",
+     "pass": false,
+     "reason": "The resubmitted claim does not show any rendering provider NPI, and the NPI registry returned no records, so a registry-consistent specialty cannot be verified."
+    }
+   ]
+  },
+  {
+   "type": "tool_call",
+   "caseId": "RF-4412",
+   "tool": "check_npi",
+   "args": {
+    "name": "Peninsula Ortho",
+    "specialty": "Orthopedics"
+   },
+   "status": "ok",
+   "result": {
+    "query": {
+     "name": "Peninsula Ortho",
+     "specialty": "Orthopedics"
+    },
+    "matches": [
+     {
+      "npi": "••5521",
+      "name": "Peninsula Ortho",
+      "specialty": "Orthopedics",
+      "city": "San Mateo",
+      "networks": [
+       "Blue Shield PPO"
+      ]
+     }
+    ]
+   },
+   "step": 2
+  },
+  {
+   "type": "check_result",
+   "caseId": "CP-2203",
+   "round": 1,
+   "pass": true,
+   "verdicts": [
+    {
+     "check": "The new-patient packet lists both imported documents by name exactly as in the chart: 'outside records PDF (Dr. Ames, 2025)' and 'outside records PDF (urgent care, 2026-04)'.",
+     "pass": true,
+     "reason": "The outbound gate packet PKT-CP-2203 contains 'Imported document: outside records PDF (Dr. Ames, 2025)' and 'Imported document: outside records PDF (urgent care, 2026-04)', matching the chart names exactly."
+    },
+    {
+     "check": "The packet's medication list matches the chart exactly and unchanged: atorvastatin 20 mg daily; atorvastatin 20 mg daily (duplicate entry from import); levothyroxine 50 mcg daily.",
+     "pass": true,
+     "reason": "The packet lists the three medication entries as recorded in the chart, labeled 'as recorded in chart, unchanged', with the same wording for each entry including the duplicate import entry and levothyroxine 50 mcg daily."
+    },
+    {
+     "check": "The second atorvastatin 20 mg daily entry is marked as a duplicate within the packet, identifying it as the duplicate import entry.",
+     "pass": true,
+     "reason": "The packet entry for the second atorvastatin reads 'DUPLICATE: this is the duplicate import entry of atorvastatin 20 mg daily'."
+    },
+    {
+     "check": "The packet is prepared for the patient Sofia Rossi (synthetic) with the appointment 2026-10-17 10:00 new patient.",
+     "pass": true,
+     "reason": "The packet items include 'Patient: Sofia Rossi (synthetic)' and 'Appointment: 2026-10-17 10:00 new patient', and the prepare_packet call returned status saved."
+    },
+    {
+     "check": "No escalation to staff was raised for this case, since the goal is completing the packet marking only.",
+     "pass": true,
+     "reason": "The tool log shows only read_chart and prepare_packet calls with a saved status, and no result contains requires_human or any escalation."
+    }
+   ],
+   "ms": 2888
+  },
+  {
+   "type": "closed",
+   "caseId": "CP-2203",
+   "summary": "The new-patient packet for Sofia Rossi (synthetic), appointment 2026-10-17 10:00, is saved with both imported documents and the medication list exactly as charted, the second atorvastatin 20 mg daily entry marked as the duplicate import entry, and no escalation raised.",
+   "value": 0,
+   "released": [
+    "PKT-CP-2203"
+   ]
+  },
+  {
+   "type": "delegated",
+   "caseId": "RF-4413",
+   "agent": "Referral"
+  },
+  {
+   "type": "tool_call",
+   "caseId": "DN-3307",
+   "tool": "check_npi",
+   "args": {
+    "name": "Sunrise Family Medicine",
+    "specialty": "Family Medicine"
+   },
+   "status": "ok",
+   "result": {
+    "query": {
+     "name": "Sunrise Family Medicine",
+     "specialty": "Family Medicine"
+    },
+    "matches": [
+     {
+      "npi": "••4471",
+      "name": "Kevin Lee, MD",
+      "specialty": "Dermatology",
+      "city": "San Francisco",
+      "networks": [
+       "Cigna",
+       "Aetna PPO"
+      ]
+     },
+     {
+      "npi": "••8820",
+      "name": "Karen Lee, MD",
+      "specialty": "Cardiology",
+      "city": "San Francisco",
+      "networks": [
+       "Cigna",
+       "Medicare"
+      ]
+     },
+     {
+      "npi": "••3105",
+      "name": "Bay Heart Associates",
+      "specialty": "Cardiology",
+      "city": "San Francisco",
+      "networks": [
+       "Aetna HMO",
+       "Medicare"
+      ]
+     },
+     {
+      "npi": "••3190",
+      "name": "Mission Cardiology Group",
+      "specialty": "Cardiology",
+      "city": "San Francisco",
+      "networks": [
+       "Blue Shield PPO"
+      ]
+     },
+     {
+      "npi": "••5521",
+      "name": "Peninsula Ortho",
+      "specialty": "Orthopedics",
+      "city": "San Mateo",
+      "networks": [
+       "Blue Shield PPO"
+      ]
+     },
+     {
+      "npi": "••7342",
+      "name": "Bay GI Associates",
+      "specialty": "Gastroenterology",
+      "city": "Oakland",
+      "networks": [
+       "Medicare"
+      ],
+      "first_available": "2026-11-28"
+     },
+     {
+      "npi": "••6610",
+      "name": "Golden Gate GI",
+      "specialty": "Gastroenterology",
+      "city": "San Francisco",
+      "networks": [
+       "Medicare"
+      ],
+      "first_available": "2026-10-22"
+     },
+     {
+      "npi": "••9034",
+      "name": "Bayview PT",
+      "specialty": "Physical therapy",
+      "city": "San Francisco",
+      "networks": [
+       "Anthem"
+      ]
+     }
+    ]
+   },
+   "step": 4
+  },
+  {
+   "type": "tool_call",
+   "caseId": "RF-4410",
+   "tool": "check_npi",
+   "args": {
+    "name": "Sunrise Family Medicine",
+    "specialty": "Family Medicine"
+   },
+   "status": "ok",
+   "result": {
+    "query": {
+     "name": "Sunrise Family Medicine",
+     "specialty": "Family Medicine"
+    },
+    "matches": [
+     {
+      "npi": "••3105",
+      "name": "Bay Heart Associates",
+      "specialty": "Cardiology",
+      "city": "San Francisco",
+      "networks": [
+       "Aetna HMO",
+       "Medicare"
+      ]
+     },
+     {
+      "npi": "••3190",
+      "name": "Mission Cardiology Group",
+      "specialty": "Cardiology",
+      "city": "San Francisco",
+      "networks": [
+       "Blue Shield PPO"
+      ]
+     }
+    ]
+   },
+   "step": 4
+  },
+  {
+   "type": "tool_call",
+   "caseId": "RF-4412",
+   "tool": "fax_send",
+   "args": {
+    "to_npi": "••5521",
+    "documents": [
+     "knee X-ray report 2026-10-03",
+     "visit note 2026-10-03"
+    ]
+   },
+   "status": "error",
+   "result": {
+    "error": "Line busy at Peninsula Ortho. Fax not sent."
+   },
+   "step": 3
+  },
+  {
+   "type": "checklist",
+   "caseId": "CP-2204",
+   "items": [
+    {
+     "id": "c1",
+     "check": "The pre-visit packet for CP-2204 is prepared for the 2026-10-17 11:00 diabetes follow-up and lists Evelyn Brooks as the patient.",
+     "evidence": "Chart fields: patient 'Evelyn Brooks (synthetic)' and appointment '2026-10-17 11:00 diabetes follow-up'; prepare_packet result for CP-2204."
+    },
+    {
+     "id": "c2",
+     "check": "The packet states the lab-system flag exactly as charted: a result from 2026-10-15 is flagged for physician review.",
+     "evidence": "Chart field lab_system_flag: 'A result from 2026-10-15 is flagged for physician review.' Packet content matches this wording and date."
+    },
+    {
+     "id": "c3",
+     "check": "The packet does not interpret, characterize, or assess the flagged lab result's clinical content (no values, no diagnosis or treatment statements).",
+     "evidence": "Chart field requires_human: 'Agents never assess clinical content.' Packet text contains only the flag and its date."
+    },
+    {
+     "id": "c4",
+     "check": "The lab result flagged for physician review is routed to staff via escalate_to_staff, and the case is marked as requiring human handling.",
+     "evidence": "Chart field requires_human: 'Lab result flagged for physician review.' escalate_to_staff call result for CP-2204 shows the physician-review item was sent to staff."
+    }
+   ],
+   "ms": 2555
+  },
+  {
+   "type": "checklist",
+   "caseId": "PA-1045",
+   "items": [
+    {
+     "id": "c1",
+     "check": "The prior authorization request for Dupixent submitted to Aetna PPO lists the diagnosis atopic dermatitis (L20.9), matching the diagnosis on file in the chart.",
+     "evidence": "Chart diagnoses_on_file: L20.9 Atopic dermatitis; payer_criteria requires atopic dermatitis diagnosis on file."
+    },
+    {
+     "id": "c2",
+     "check": "The request documents a topical steroid tried and stopped, citing triamcinolone 0.1% (stopped 2026-05, documented as not effective).",
+     "evidence": "Chart medication_history entry for triamcinolone 0.1%; payer_criteria requirement for a topical steroid documented as tried and stopped."
+    },
+    {
+     "id": "c3",
+     "check": "The request documents a topical calcineurin inhibitor tried and stopped, citing tacrolimus 0.1% (stopped 2026-08, documented as not effective).",
+     "evidence": "Chart medication_history entry for tacrolimus 0.1%; payer_criteria requirement for a topical calcineurin inhibitor documented as tried and stopped."
+    },
+    {
+     "id": "c4",
+     "check": "The Dupixent dose on the submitted request matches the chart order: 600 mg loading dose once, then 300 mg every 2 weeks.",
+     "evidence": "Chart order field; payer_criteria requires dose on the request to match the order in the chart."
+    },
+    {
+     "id": "c5",
+     "check": "The submit_auth action for Dupixent to Aetna PPO was completed with the patient Priya Shah, the L20.9 diagnosis, and the order dose above, and no requires_human flag was returned; if a requires_human flag is returned, the case is routed to staff instead.",
+     "evidence": "submit_auth tool result status and any requires_human flag; chart patient, diagnoses_on_file and order fields."
+    }
+   ],
+   "ms": 2644
+  },
+  {
+   "type": "tool_call",
+   "caseId": "RF-4412",
+   "tool": "fax_send",
+   "args": {
+    "to_npi": "••5521",
+    "documents": [
+     "knee X-ray report 2026-10-03",
+     "visit note 2026-10-03"
+    ]
+   },
+   "status": "error",
+   "result": {
+    "error": "Line busy at Peninsula Ortho. Fax not sent."
+   },
+   "step": 4
+  },
+  {
+   "type": "tool_call",
+   "caseId": "CP-2204",
+   "tool": "read_chart",
+   "args": {
+    "case_id": "CP-2204"
+   },
+   "status": "ok",
+   "result": {
+    "case_id": "CP-2204",
+    "patient": "Evelyn Brooks (synthetic)",
+    "appointment": "2026-10-17 11:00 diabetes follow-up",
+    "lab_system_flag": "A result from 2026-10-15 is flagged for physician review.",
+    "requires_human": "Lab result flagged for physician review. Agents never assess clinical content."
+   },
+   "step": 1
+  },
+  {
+   "type": "escalated",
+   "caseId": "CP-2204",
+   "reason": "Lab result flagged for physician review. Agents never assess clinical content.",
+   "by": "rule"
+  },
+  {
+   "type": "delegated",
+   "caseId": "DN-3311",
+   "agent": "Denials"
+  },
+  {
+   "type": "loop_detected",
+   "caseId": "RF-4412",
+   "reason": "fax_send called 3× with identical arguments"
+  },
+  {
+   "type": "escalated",
+   "caseId": "RF-4412",
+   "reason": "Loop detector stopped the case: fax_send called 3× with identical arguments. Last result: Line busy at Peninsula Ortho. Fax not sent. Staff to finish it.",
+   "by": "loop"
+  },
+  {
+   "type": "tool_call",
+   "caseId": "PA-1045",
+   "tool": "read_chart",
+   "args": {
+    "case_id": "PA-1045"
+   },
+   "status": "ok",
+   "result": {
+    "case_id": "PA-1045",
+    "patient": "Priya Shah (synthetic)",
+    "payer": "Aetna PPO",
+    "order": "Dupixent 600 mg loading dose once, then 300 mg every 2 weeks",
+    "diagnoses_on_file": [
+     "L20.9 Atopic dermatitis"
+    ],
+    "medication_history": [
+     "triamcinolone 0.1% (stopped 2026-05, documented as not effective)",
+     "tacrolimus 0.1% (stopped 2026-08, documented as not effective)"
+    ]
+   },
+   "step": 1
+  },
+  {
+   "type": "tool_call",
+   "caseId": "PA-1045",
+   "tool": "payer_criteria",
+   "args": {
+    "payer": "Aetna PPO",
+    "item": "Dupixent"
+   },
+   "status": "ok",
+   "result": {
+    "payer": "Aetna PPO",
+    "item": "Dupixent",
+    "requires": [
+     "atopic dermatitis diagnosis on file",
+     "a topical steroid documented as tried and stopped",
+     "a topical calcineurin inhibitor documented as tried and stopped",
+     "dose on the request must match the order in the chart"
+    ]
+   },
+   "step": 2
+  },
+  {
+   "type": "tool_call",
+   "caseId": "DN-3307",
+   "tool": "escalate_to_staff",
+   "args": {
+    "reason": "The CL-3307 resubmission (CLM-3307) has no rendering provider NPI, and the registry search for Sunrise Family Medicine returned no Family Medicine provider to verify, so staff must confirm the rendering provider's NPI and specialty before a corrected claim is sent."
+   },
+   "status": "ok",
+   "result": {
+    "routed": "staff tray"
+   },
+   "step": 5
+  },
+  {
+   "type": "escalated",
+   "caseId": "DN-3307",
+   "reason": "The CL-3307 resubmission (CLM-3307) has no rendering provider NPI, and the registry search for Sunrise Family Medicine returned no Family Medicine provider to verify, so staff must confirm the rendering provider's NPI and specialty before a corrected claim is sent.",
+   "by": "agent"
+  },
+  {
+   "type": "checklist",
+   "caseId": "RF-4413",
+   "items": [
+    {
+     "id": "c1",
+     "check": "The referral is faxed to a gastroenterology practice whose NPI registry record shows specialty Gastroenterology and network status in-network for Medicare.",
+     "evidence": "check_npi result for the receiving practice's NPI: specialty field reads Gastroenterology and networks include Medicare; chart referral_order.specialty = Gastroenterology, payer = Medicare."
+    },
+    {
+     "id": "c2",
+     "check": "The receiving practice's first_available appointment falls on or before 2026-11-13, which is within 30 days of the 2026-10-14 order date.",
+     "evidence": "check_npi result first_available date for the chosen practice compared with chart referral_order.ordered = 2026-10-14 and physician_instruction 'within 30 days of the order' (window end 2026-11-13)."
+    },
+    {
+     "id": "c3",
+     "check": "A fax_send to the chosen gastroenterology practice has been completed, and the outbound referral packet includes the three required records listed in the chart: FIT result report 2026-10-10, visit note 2026-10-14, and visit note 2026-09-02.",
+     "evidence": "fax_send result showing a successful send status to the chosen practice's NPI/fax; packet document list matches chart required_records."
+    },
+    {
+     "id": "c4",
+     "check": "The fax packet identifies the patient as Kevin O'Brien and the referral as Gastroenterology, ordered 2026-10-14, with payer Medicare, copied exactly from the chart.",
+     "evidence": "fax_send payload fields compared with chart patient, referral_order.specialty, referral_order.ordered, and payer."
+    }
+   ],
+   "ms": 2842
+  },
+  {
+   "type": "tool_call",
+   "caseId": "RF-4410",
+   "tool": "escalate_to_staff",
+   "args": {
+    "reason": "Referral RF-4410 (Robert Haines, Aetna HMO, cardiology) cannot be completed with my tools: the chart has no referring provider NPI, the registry search for Sunrise Family Medicine returned only unrelated cardiology practices, and fax_send accepts no referring NPI, patient name, or subject fields. Staff should confirm the referring provider's NPI and the cover-sheet details, then decide whether to release or cancel the already-queued fax FAX-4410 to Bay Heart Associates (••3105) to avoid a duplicate, since resubmitting would duplicate it."
+   },
+   "status": "ok",
+   "result": {
+    "routed": "staff tray"
+   },
+   "step": 5
+  },
+  {
+   "type": "escalated",
+   "caseId": "RF-4410",
+   "reason": "Referral RF-4410 (Robert Haines, Aetna HMO, cardiology) cannot be completed with my tools: the chart has no referring provider NPI, the registry search for Sunrise Family Medicine returned only unrelated cardiology practices, and fax_send accepts no referring NPI, patient name, or subject fields. Staff should confirm the referring provider's NPI and the cover-sheet details, then decide whether to release or cancel the already-queued fax FAX-4410 to Bay Heart Associates (••3105) to avoid a duplicate, since resubmitting would duplicate it.",
+   "by": "agent"
+  },
+  {
+   "type": "tool_call",
+   "caseId": "RF-4413",
+   "tool": "read_chart",
+   "args": {
+    "case_id": "RF-4413"
+   },
+   "status": "ok",
+   "result": {
+    "case_id": "RF-4413",
+    "patient": "Kevin O'Brien (synthetic)",
+    "payer": "Medicare",
+    "referral_order": {
+     "specialty": "Gastroenterology",
+     "ordered": "2026-10-14",
+     "physician_instruction": "appointment needed within 30 days of the order"
+    },
+    "required_records": [
+     "FIT result report 2026-10-10",
+     "visit note 2026-10-14",
+     "visit note 2026-09-02"
+    ]
+   },
+   "step": 1
+  },
+  {
+   "type": "tool_call",
+   "caseId": "PA-1045",
+   "tool": "submit_auth",
+   "args": {
+    "case_id": "PA-1045",
+    "payer": "Aetna PPO",
+    "item": "Dupixent",
+    "dose": "600 mg loading dose once, then 300 mg every 2 weeks",
+    "evidence": [
+     "Diagnosis on file: L20.9 Atopic dermatitis",
+     "Topical steroid tried and stopped: triamcinolone 0.1% (stopped 2026-05, documented as not effective)",
+     "Topical calcineurin inhibitor tried and stopped: tacrolimus 0.1% (stopped 2026-08, documented as not effective)",
+     "Dose matches chart order: Dupixent 600 mg loading dose once, then 300 mg every 2 weeks"
+    ]
+   },
+   "status": "ok",
+   "result": {
+    "status": "queued_for_release",
+    "reference": "AUTH-1045",
+    "note": "Accepted by the outbound gate. Released to the recipient automatically once the Verifier passes this case; this is the correct final state."
+   },
+   "step": 3
+  },
+  {
+   "type": "tool_call",
+   "caseId": "RF-4413",
+   "tool": "check_npi",
+   "args": {
+    "name": "Gastroenterology practice",
+    "specialty": "Gastroenterology"
+   },
+   "status": "ok",
+   "result": {
+    "query": {
+     "name": "Gastroenterology practice",
+     "specialty": "Gastroenterology"
+    },
+    "matches": [
+     {
+      "npi": "••7342",
+      "name": "Bay GI Associates",
+      "specialty": "Gastroenterology",
+      "city": "Oakland",
+      "networks": [
+       "Medicare"
+      ],
+      "first_available": "2026-11-28"
+     },
+     {
+      "npi": "••6610",
+      "name": "Golden Gate GI",
+      "specialty": "Gastroenterology",
+      "city": "San Francisco",
+      "networks": [
+       "Medicare"
+      ],
+      "first_available": "2026-10-22"
+     }
+    ]
+   },
+   "step": 2
+  },
+  {
+   "type": "checklist",
+   "caseId": "DN-3311",
+   "items": [
+    {
+     "id": "c1",
+     "check": "The resubmitted claim CL-3311 to Medi-Cal (payer ID MCAL1) replaces modifier 59 on CPT 97110 with modifier XS, as directed by the chart coding note.",
+     "evidence": "Chart coding_note: 'use modifier XS on 97110 instead of 59'; ERA CARC CO-4 describes 59 on 97110 paired with 97140; chart medi_cal_payer_id MCAL1."
+    },
+    {
+     "id": "c2",
+     "check": "The submitted corrected claim keeps CPT 97140 on the line with its existing modifier handling unchanged, and only the 97110 modifier is altered.",
+     "evidence": "Chart coding_note names only 97110 for the modifier change; ERA lists 97140 as the paired code with no modifier correction stated."
+    },
+    {
+     "id": "c3",
+     "check": "The corrected claim for CL-3311 is submitted to Medi-Cal with the ERA claim ID CL-3311 and the disputed amount of 96.2 matching the ERA.",
+     "evidence": "ERA claim_id CL-3311, amount 96.2; chart claim_id CL-3311, payer Medi-Cal."
+    },
+    {
+     "id": "c4",
+     "check": "The submission's modifier change is documented as the chart's NCCI XS guidance, with no clinical interpretation or attestation added by the worker.",
+     "evidence": "Chart coding_note authoritative for the NCCI pair; task is administrative only, and physician attestation is not part of this item."
+    }
+   ],
+   "ms": 2624
+  },
+  {
+   "type": "tool_call",
+   "caseId": "DN-3311",
+   "tool": "read_chart",
+   "args": {
+    "case_id": "DN-3311"
+   },
+   "status": "ok",
+   "result": {
+    "case_id": "DN-3311",
+    "patient": "Rosa Martinez (synthetic)",
+    "payer": "Medi-Cal",
+    "claim_id": "CL-3311",
+    "coding_note": "Therapy note shows 97140 and 97110 in separate, timed sessions. NCCI pair: use modifier XS on 97110 instead of 59.",
+    "medi_cal_payer_id": "MCAL1"
+   },
+   "step": 1
+  },
+  {
+   "type": "tool_call",
+   "caseId": "DN-3311",
+   "tool": "read_era",
+   "args": {
+    "claim_id": "CL-3311"
+   },
+   "status": "ok",
+   "result": {
+    "claim_id": "CL-3311",
+    "carc": "CO-4",
+    "description": "Procedure code inconsistent with modifier: 59 on 97110 paired with 97140",
+    "amount": 96.2
+   },
+   "step": 2
+  },
+  {
+   "type": "tool_call",
+   "caseId": "DN-3311",
+   "tool": "payer_criteria",
+   "args": {
+    "payer": "Medi-Cal",
+    "item": "CPT 97110 modifier 59 CO-4 correction"
+   },
+   "status": "ok",
+   "result": {
+    "payer": "Medi-Cal",
+    "item": "CPT 97110 modifier 59 CO-4 correction",
+    "requires": [],
+    "note": "No special criteria on file: standard rules apply and nothing extra is required."
+   },
+   "step": 3
+  },
+  {
+   "type": "tool_call",
+   "caseId": "RF-4413",
+   "tool": "fax_send",
+   "args": {
+    "to_npi": "••6610",
+    "documents": [
+     "Referral cover: Patient Kevin O'Brien (synthetic); Referral specialty: Gastroenterology; Ordered: 2026-10-14; Payer: Medicare; Physician instruction: appointment needed within 30 days of the order",
+     "FIT result report 2026-10-10",
+     "Visit note 2026-10-14",
+     "Visit note 2026-09-02"
+    ]
+   },
+   "status": "ok",
+   "result": {
+    "status": "queued_for_release",
+    "reference": "FAX-4413",
+    "note": "Accepted by the outbound gate. Released to the recipient automatically once the Verifier passes this case; this is the correct final state."
+   },
+   "step": 3
+  },
+  {
+   "type": "tool_call",
+   "caseId": "DN-3311",
+   "tool": "submit_claim",
+   "args": {
+    "claim_id": "CL-3311",
+    "action": "resubmit",
+    "changes": [
+     "CPT 97110: modifier 59 replaced with modifier XS, per chart coding note (NCCI pair 97140/97110; therapy note shows separate, timed sessions)",
+     "CPT 97140: line left unchanged; existing modifier handling not altered",
+     "Payer: Medi-Cal, payer ID MCAL1",
+     "ERA claim ID: CL-3311; disputed amount: 96.2 (matches ERA)",
+     "Denial reference: CARC CO-4 (procedure code inconsistent with modifier)",
+     "Documentation: modifier change made per chart's NCCI XS guidance; no clinical interpretation or attestation added by worker"
+    ]
+   },
+   "status": "error",
+   "result": {
+    "error": "Clearinghouse rejected the file: payer ID mismatch. Medi-Cal payer ID on file is MCAL1. Nothing reached the payer."
+   },
+   "step": 4
+  },
+  {
+   "type": "check_result",
+   "caseId": "PA-1045",
+   "round": 1,
+   "pass": false,
+   "verdicts": [
+    {
+     "check": "The prior authorization request for Dupixent submitted to Aetna PPO lists the diagnosis atopic dermatitis (L20.9), matching the diagnosis on file in the chart.",
+     "pass": true,
+     "reason": "The outbound gate request for Aetna PPO Dupixent lists 'Diagnosis on file: L20.9 Atopic dermatitis', which matches the chart's diagnoses_on_file."
+    },
+    {
+     "check": "The request documents a topical steroid tried and stopped, citing triamcinolone 0.1% (stopped 2026-05, documented as not effective).",
+     "pass": true,
+     "reason": "The submitted evidence states 'Topical steroid tried and stopped: triamcinolone 0.1% (stopped 2026-05, documented as not effective)', matching the chart medication history."
+    },
+    {
+     "check": "The request documents a topical calcineurin inhibitor tried and stopped, citing tacrolimus 0.1% (stopped 2026-08, documented as not effective).",
+     "pass": true,
+     "reason": "The submitted evidence states 'Topical calcineurin inhibitor tried and stopped: tacrolimus 0.1% (stopped 2026-08, documented as not effective)', matching the chart."
+    },
+    {
+     "check": "The Dupixent dose on the submitted request matches the chart order: 600 mg loading dose once, then 300 mg every 2 weeks.",
+     "pass": true,
+     "reason": "The submitted dose is '600 mg loading dose once, then 300 mg every 2 weeks', identical to the chart order."
+    },
+    {
+     "check": "The submit_auth action for Dupixent to Aetna PPO was completed with the patient Priya Shah, the L20.9 diagnosis, and the order dose above, and no requires_human flag was returned; if a requires_human flag is returned, the case is routed to staff instead.",
+     "pass": false,
+     "reason": "The submit_auth call's args do not include the patient name Priya Shah (only case_id, payer, item, dose, and evidence), though the L20.9 diagnosis and dose are present and no requires_human flag was returned; the result is queued_for_release, but the patient identity is not shown in the submitted action."
+    }
+   ],
+   "ms": 2587
+  },
+  {
+   "type": "replan",
+   "caseId": "PA-1045",
+   "round": 1,
+   "failed": [
+    {
+     "check": "The submit_auth action for Dupixent to Aetna PPO was completed with the patient Priya Shah, the L20.9 diagnosis, and the order dose above, and no requires_human flag was returned; if a requires_human flag is returned, the case is routed to staff instead.",
+     "pass": false,
+     "reason": "The submit_auth call's args do not include the patient name Priya Shah (only case_id, payer, item, dose, and evidence), though the L20.9 diagnosis and dose are present and no requires_human flag was returned; the result is queued_for_release, but the patient identity is not shown in the submitted action."
+    }
+   ]
+  },
+  {
+   "type": "tool_call",
+   "caseId": "DN-3311",
+   "tool": "submit_claim",
+   "args": {
+    "claim_id": "CL-3311",
+    "action": "resubmit",
+    "changes": [
+     "CPT 97110: modifier 59 replaced with modifier XS, per chart coding note (NCCI pair 97140/97110; therapy note shows separate, timed sessions)",
+     "CPT 97140: line left unchanged; existing modifier handling not altered",
+     "Payer: Medi-Cal, payer ID MCAL1",
+     "ERA claim ID: CL-3311; disputed amount: 96.2 (matches ERA)",
+     "Denial reference: CARC CO-4 (procedure code inconsistent with modifier)",
+     "Documentation: modifier change made per chart's NCCI XS guidance; no clinical interpretation or attestation added by worker"
+    ]
+   },
+   "status": "ok",
+   "result": {
+    "status": "queued_for_release",
+    "reference": "CLM-3311",
+    "note": "Accepted by the outbound gate. Released to the recipient automatically once the Verifier passes this case; this is the correct final state."
+   },
+   "step": 5
+  },
+  {
+   "type": "tool_call",
+   "caseId": "PA-1045",
+   "tool": "submit_auth",
+   "args": {
+    "case_id": "PA-1045",
+    "payer": "Aetna PPO",
+    "item": "Dupixent",
+    "dose": "600 mg loading dose once, then 300 mg every 2 weeks",
+    "evidence": [
+     "Patient: Priya Shah",
+     "Diagnosis on file: L20.9 Atopic dermatitis",
+     "Topical steroid tried and stopped: triamcinolone 0.1% (stopped 2026-05, documented as not effective)",
+     "Topical calcineurin inhibitor tried and stopped: tacrolimus 0.1% (stopped 2026-08, documented as not effective)",
+     "Dose matches chart order: Dupixent 600 mg loading dose once, then 300 mg every 2 weeks"
+    ]
+   },
+   "status": "ok",
+   "result": {
+    "status": "queued_for_release",
+    "reference": "AUTH-1045-v2",
+    "replaces": "the earlier version, now discarded",
+    "note": "Accepted by the outbound gate. Released to the recipient automatically once the Verifier passes this case; this is the correct final state."
+   },
+   "step": 4
+  },
+  {
+   "type": "check_result",
+   "caseId": "RF-4413",
+   "round": 1,
+   "pass": true,
+   "verdicts": [
+    {
+     "check": "The referral is faxed to a gastroenterology practice whose NPI registry record shows specialty Gastroenterology and network status in-network for Medicare.",
+     "pass": true,
+     "reason": "The fax_send went to ••6610 (Golden Gate GI), whose registry record shows specialty Gastroenterology and networks [Medicare]."
+    },
+    {
+     "check": "The receiving practice's first_available appointment falls on or before 2026-11-13, which is within 30 days of the 2026-10-14 order date.",
+     "pass": true,
+     "reason": "Golden Gate GI (••6610) registry first_available is 2026-10-22, which is before 2026-11-13."
+    },
+    {
+     "check": "A fax_send to the chosen gastroenterology practice has been completed, and the outbound referral packet includes the three required records listed in the chart: FIT result report 2026-10-10, visit note 2026-10-14, and visit note 2026-09-02.",
+     "pass": true,
+     "reason": "The outbound gate holds FAX-4413 to ••6610 queued_for_release, with documents including FIT result report 2026-10-10, Visit note 2026-10-14, and Visit note 2026-09-02."
+    },
+    {
+     "check": "The fax packet identifies the patient as Kevin O'Brien and the referral as Gastroenterology, ordered 2026-10-14, with payer Medicare, copied exactly from the chart.",
+     "pass": true,
+     "reason": "The cover sheet reads 'Patient Kevin O'Brien (synthetic); Referral specialty: Gastroenterology; Ordered: 2026-10-14; Payer: Medicare', matching the chart values."
+    }
+   ],
+   "ms": 2110
+  },
+  {
+   "type": "closed",
+   "caseId": "RF-4413",
+   "summary": "RF-4413 is queued as fax FAX-4413 to Golden Gate GI (NPI ••6610), the only Medicare in-network gastroenterology practice in the registry search with a first available date (2026-10-22) inside the 30-day window. The packet carries the cover details from the chart and the three required records, and it will release automatically once the Verifier passes it.",
+   "value": 0,
+   "released": [
+    "FAX-4413"
+   ]
+  },
+  {
+   "type": "check_result",
+   "caseId": "DN-3311",
+   "round": 1,
+   "pass": true,
+   "verdicts": [
+    {
+     "check": "The resubmitted claim CL-3311 to Medi-Cal (payer ID MCAL1) replaces modifier 59 on CPT 97110 with modifier XS, as directed by the chart coding note.",
+     "pass": true,
+     "reason": "The outbound gate's current submission shows CPT 97110 changed from modifier 59 to XS per the chart coding note, to Medi-Cal payer ID MCAL1, with status queued_for_release."
+    },
+    {
+     "check": "The submitted corrected claim keeps CPT 97140 on the line with its existing modifier handling unchanged, and only the 97110 modifier is altered.",
+     "pass": true,
+     "reason": "The current submission lists CPT 97140 as 'line left unchanged; existing modifier handling not altered' and the only modifier change is on 97110."
+    },
+    {
+     "check": "The corrected claim for CL-3311 is submitted to Medi-Cal with the ERA claim ID CL-3311 and the disputed amount of 96.2 matching the ERA.",
+     "pass": true,
+     "reason": "The read_era result shows claim CL-3311, amount 96.2, and the submission records ERA claim ID CL-3311 and disputed amount 96.2 as matching the ERA."
+    },
+    {
+     "check": "The submission's modifier change is documented as the chart's NCCI XS guidance, with no clinical interpretation or attestation added by the worker.",
+     "pass": true,
+     "reason": "The submission documentation states the modifier change was made per the chart's NCCI XS guidance with no clinical interpretation or attestation added."
+    }
+   ],
+   "ms": 2369
+  },
+  {
+   "type": "closed",
+   "caseId": "DN-3311",
+   "summary": "DN-3311: The corrected claim CL-3311 to Medi-Cal (MCAL1) is queued for release with modifier 59 on CPT 97110 replaced by XS per the chart's NCCI coding note, 97140 left unchanged, and the 96.2 amount matching the ERA. The first submission was rejected by the clearinghouse on a payer ID mismatch, and the retry with the same MCAL1 ID was accepted (reference CLM-3311).",
+   "value": 96.2,
+   "released": [
+    "CLM-3311"
+   ]
+  },
+  {
+   "type": "check_result",
+   "caseId": "PA-1045",
+   "round": 2,
+   "pass": true,
+   "verdicts": [
+    {
+     "check": "The prior authorization request for Dupixent submitted to Aetna PPO lists the diagnosis atopic dermatitis (L20.9), matching the diagnosis on file in the chart.",
+     "pass": true,
+     "reason": "The outbound gate's current submission (AUTH-1045-v2) lists 'Diagnosis on file: L20.9 Atopic dermatitis', which matches the chart's diagnoses_on_file."
+    },
+    {
+     "check": "The request documents a topical steroid tried and stopped, citing triamcinolone 0.1% (stopped 2026-05, documented as not effective).",
+     "pass": true,
+     "reason": "The current gate submission includes 'Topical steroid tried and stopped: triamcinolone 0.1% (stopped 2026-05, documented as not effective)', matching the chart medication history."
+    },
+    {
+     "check": "The request documents a topical calcineurin inhibitor tried and stopped, citing tacrolimus 0.1% (stopped 2026-08, documented as not effective).",
+     "pass": true,
+     "reason": "The current gate submission includes 'Topical calcineurin inhibitor tried and stopped: tacrolimus 0.1% (stopped 2026-08, documented as not effective)', matching the chart."
+    },
+    {
+     "check": "The Dupixent dose on the submitted request matches the chart order: 600 mg loading dose once, then 300 mg every 2 weeks.",
+     "pass": true,
+     "reason": "The gate submission's dose is '600 mg loading dose once, then 300 mg every 2 weeks', identical to the chart order."
+    },
+    {
+     "check": "The submit_auth action for Dupixent to Aetna PPO was completed with the patient Priya Shah, the L20.9 diagnosis, and the order dose above, and no requires_human flag was returned; if a requires_human flag is returned, the case is routed to staff instead.",
+     "pass": true,
+     "reason": "The submit_auth call for AUTH-1045-v2 returned status queued_for_release with the patient name, L20.9, and the correct dose in its evidence, and no requires_human flag appears in any result."
+    }
+   ],
+   "ms": 2827
+  },
+  {
+   "type": "closed",
+   "caseId": "PA-1045",
+   "summary": "Resubmitted the Dupixent prior authorization for PA-1045 to Aetna PPO with patient Priya Shah named in the evidence, L20.9 diagnosis, and the chart dose, and it is queued for release as AUTH-1045-v2, replacing the earlier discarded version.",
+   "value": 3180,
+   "released": [
+    "AUTH-1045-v2"
+   ]
+  },
+  {
+   "type": "run_end",
+   "closed": 7,
+   "escalated": 5,
+   "ms": 25481
+  }
+ ]
+}

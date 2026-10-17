@@ -1,377 +1,3 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="robots" content="noindex,nofollow">
-<title>EMR Copilot</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
-<style>
-/* Layout: full-viewport night-shift console. Header → KPI tiles (click to expand a drawer) → graph hero | splitter | dock (log, queue, staff tray).
-Sizing: one fluid root font-size, everything else rem/clamp; @media for the shell (dock side ≥1100px, bottom below, stacked on phones), @container for panels.
-Dark-only on purpose: the story happens after the clinic closes. Patterns and reasons: RESEARCH.md */
-:root{
---bg:#070d1a; --bg-glow:#112347; --panel:#0e1729; --panel-2:#132036; --line:#1f2e4a; --line-2:#2a3d60;
---ink:#e8eefa; --muted:#8798b6;
---agent:#53cfe6; --agent-soft:#0f3142;   /* sub-agents, handoffs */
---dec:#dce6ff;  --dec-soft:#1c2846;      /* decisions */
---verify:#b49dff; --verify-soft:#251e45; /* Verifier */
---money:#f6c867; --money-soft:#33290f;   /* revenue only */
---ok:#5fd49b; --ok-soft:#10301f; --warn:#f59e5b; --warn-soft:#38220f; --bad:#f4777b; --bad-soft:#3a171c; --run:#8fb2ff;
---display:"Bricolage Grotesque","Avenir Next",system-ui,sans-serif;
---sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
---mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
---gap:clamp(.5rem,.7vw,1rem); --hdr:2.7rem; --ease:cubic-bezier(.2,.8,.2,1);
-color-scheme:dark;
-}
-*{box-sizing:border-box}
-[hidden]{display:none!important}
-html{font-size:clamp(13px,.45vw + 8.4px,19px);background:var(--bg)}
-html.present{font-size:clamp(15px,.62vw + 9px,25px)}
-html,body{height:100%}
-body{margin:0;color:var(--ink);font-family:var(--sans);font-size:.9rem;line-height:1.45;overflow:hidden;
-background:radial-gradient(70rem 32rem at 75% -10rem,var(--bg-glow),transparent 70%),var(--bg)}
-.app{height:100dvh;display:grid;grid-template-rows:auto auto auto minmax(0,1fr);padding:var(--gap) clamp(.75rem,1.4vw,1.75rem);max-width:2560px;margin:0 auto}
-button{font:inherit;cursor:pointer;border-radius:.55rem;border:1px solid var(--agent);background:var(--agent);color:#03202b;font-weight:600;padding:.45em 1em;transition:filter .12s,transform .12s,background .15s}
-button:hover:not(:disabled){filter:brightness(1.1)}
-button:active:not(:disabled){transform:translateY(1px)}
-button:disabled{opacity:.45;cursor:default}
-:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
-.ghost{background:transparent;color:var(--agent)}
-.ghost.on{background:var(--agent-soft)}
-button.sm{padding:.2em .7em;font-size:.78rem}
-.plain{background:transparent;border:0;border-radius:0;color:var(--ink);font-weight:inherit;text-align:left;padding:0}
-.plain:hover:not(:disabled){filter:none}
-.plain:active:not(:disabled){transform:none}
-.lbl{font-size:.68rem;text-transform:uppercase;letter-spacing:.11em;color:var(--muted);font-weight:600}
-.num{font-variant-numeric:tabular-nums}
-.mono{font-family:var(--mono);font-size:.8rem}
-.empty{color:var(--muted);font-size:.82rem;margin:0}
-.chev{display:inline-grid;place-items:center;width:1rem;flex:none}
-.chev::before{content:"";width:.42em;height:.42em;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg);transition:transform .25s var(--ease)}
-[aria-expanded="true"] .chev::before,[aria-expanded="true"].chev::before{transform:rotate(45deg)}
-.why{border-left:2px solid var(--dec);padding:.35rem .65rem;background:var(--dec-soft);border-radius:0 .5rem .5rem 0;font-size:.8rem}
-.why.v{border-color:var(--verify);background:var(--verify-soft)}
-.why.b{border-color:var(--bad);background:var(--bad-soft)}
-.why.w{border-color:var(--warn);background:var(--warn-soft)}
-.tag{display:inline-flex;font-size:.7rem;font-weight:600;border-radius:999px;padding:.05rem .5rem;border:1px solid var(--line-2)}
-.pill{display:inline-flex;font-size:.72rem;font-weight:600;padding:.12rem .55rem;border-radius:999px;white-space:nowrap}
-.s-queued{background:var(--line);color:var(--muted)}.s-working{background:#18264a;color:var(--run)}.s-retry{background:var(--warn-soft);color:var(--warn)}
-.s-fix{background:var(--verify-soft);color:var(--verify)}.s-done{background:var(--ok-soft);color:var(--ok)}.s-esc{background:var(--bad-soft);color:var(--bad)}
-.code{font-family:var(--mono);font-size:.7rem;border:1px solid var(--line-2);border-radius:.3rem;padding:0 .3rem;color:var(--ink)}
-/* animated disclosure: grid rows 0fr → 1fr */
-.acc{display:grid;grid-template-rows:0fr;transition:grid-template-rows .32s var(--ease)}
-.open>.acc,.acc.open{grid-template-rows:1fr}
-.acc>.in{min-height:0;overflow:hidden}
-/* Header */
-header{display:flex;flex-wrap:wrap;gap:.6rem 1.5rem;align-items:center;justify-content:space-between;padding-bottom:var(--gap)}
-.brand{display:flex;align-items:center;gap:.75rem;min-width:0}
-.mark{width:2.5rem;height:2.5rem;border-radius:.7rem;flex:none;display:grid;place-items:center;background:linear-gradient(140deg,var(--agent),#2b6fc0);color:#03141c;font-family:var(--display);font-weight:800;font-size:1.05rem}
-h1{font-family:var(--display);font-size:clamp(1.3rem,1.05rem + .6vw,1.9rem);font-weight:800;margin:0;letter-spacing:-.02em;line-height:1.05}
-.sub{color:var(--muted);font-size:.8rem;display:flex;flex-wrap:wrap;gap:.25rem .6rem;align-items:center}
-.chip{display:inline-flex;align-items:center;gap:.35rem;font-size:.7rem;font-weight:600;border:1px solid var(--line-2);border-radius:999px;padding:.1rem .55rem;color:var(--muted);background:var(--panel)}
-.chip.c{color:var(--agent);border-color:color-mix(in srgb,var(--agent) 40%,transparent)}
-.chip.d{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 40%,transparent)}
-.right{display:flex;align-items:center;gap:1.1rem;flex-wrap:wrap}
-.clock{display:grid;gap:.25rem;min-width:10rem}
-.clock .t{font-family:var(--display);font-size:clamp(1.5rem,1.15rem + .8vw,2.3rem);font-weight:700;line-height:1;letter-spacing:-.02em}
-.clock .t small{font-size:.8rem;color:var(--muted);font-family:var(--sans);font-weight:500;letter-spacing:0;margin-left:.4rem}
-.track{height:4px;border-radius:2px;background:var(--line);overflow:hidden}
-.track i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--agent),var(--verify));transition:width .25s linear}
-.ctrls{display:flex;gap:.5rem;flex-wrap:wrap}
-/* KPI tiles (buttons) + drawer */
-.strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,7.2rem),1fr));gap:calc(var(--gap)*.8);padding-bottom:var(--gap)}
-.tile{background:var(--panel);border:1px solid var(--line);color:var(--ink);font-weight:400;text-align:left;border-radius:.8rem;padding:.5rem .8rem;display:grid;gap:.05rem;align-content:center;position:relative}
-.tile:hover:not(:disabled){filter:none;border-color:var(--line-2)}
-.tile[aria-expanded="true"]{border-color:var(--tc,var(--agent));box-shadow:inset 0 -3px 0 var(--tc,var(--agent))}
-.tile .n{font-family:var(--display);font-size:clamp(1.35rem,.95rem + 1vw,2.2rem);font-weight:700;line-height:1.05;letter-spacing:-.02em;color:var(--tc)}
-.tile .hint{position:absolute;top:.45rem;right:.6rem;color:var(--muted);font-size:.75rem}
-.tile.ok{--tc:var(--ok)}.tile.bad{--tc:var(--bad)}.tile.a{--tc:var(--agent)}.tile.d{--tc:var(--dec)}.tile.w{--tc:var(--warn)}.tile.v{--tc:var(--verify)}
-.money{--tc:var(--money);grid-column:span 2;border-color:color-mix(in srgb,var(--money) 32%,var(--line));background:linear-gradient(160deg,var(--money-soft),var(--panel) 70%)}
-.money .lbl{color:var(--money)}
-.money .big{font-family:var(--display);font-weight:800;font-size:clamp(1.8rem,1.1rem + 1.8vw,3.2rem);line-height:1;letter-spacing:-.03em;color:var(--money)}
-.money .big .c{font-size:.5em;opacity:.7}
-.money .brk{font-size:.72rem;color:var(--muted)}
-.money.bump .big{animation:bump .45s ease}
-.drawer.open>.in>.box{margin-bottom:var(--gap)}
-.box{background:var(--panel-2);border:1px solid var(--line-2);border-radius:.8rem;padding:.6rem .8rem;display:grid;gap:.5rem}
-.box .dh{display:flex;align-items:center;gap:.6rem}
-.box .dh b{font-family:var(--display);font-size:1rem}
-.box .dh button{margin-left:auto}
-.dl{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,17rem),1fr));gap:.4rem;max-height:min(20dvh,11rem);overflow:auto}
-.di{background:var(--panel);border:1px solid var(--line);color:var(--ink);font-weight:400;text-align:left;display:grid;grid-template-columns:auto minmax(0,1fr);gap:0 .55rem;padding:.4rem .6rem;border-radius:.55rem;font-size:.8rem}
-.di:hover:not(:disabled){filter:none;border-color:var(--agent)}
-.di .mono{color:var(--muted);font-size:.72rem;padding-top:.08rem}
-.di small{grid-column:2;color:var(--muted);font-size:.72rem}
-/* Main split */
-.main{min-height:0;display:grid;grid-template-columns:minmax(0,1fr) .75rem var(--dockW,clamp(22rem,30vw,40rem));grid-template-rows:minmax(0,1fr)}
-.main.dock-off{grid-template-columns:minmax(0,1fr) .75rem 0}
-.main.dragging{user-select:none;cursor:col-resize}
-.split{position:relative;cursor:col-resize;touch-action:none;display:grid;place-items:center;border-radius:.4rem}
-.split::before{content:"";width:3px;height:2.6rem;border-radius:2px;background:var(--line-2);transition:background .15s}
-.split:hover::before,.split:focus-visible::before,.main.dragging .split::before{background:var(--agent)}
-.dock{min-height:0;min-width:0;overflow:hidden;container:dock/size;view-transition-name:dock}
-.main.dock-off .dock{visibility:hidden}
-@media (max-width:1099px){
-.main{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) .75rem var(--dockH,42%)}
-.main.dock-off{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) .75rem 0}
-.main.dragging{cursor:row-resize}
-.split{cursor:row-resize}.split::before{width:2.6rem;height:3px}
-}
-@media (max-width:760px){
-body{overflow:auto}
-.app{height:auto;min-height:100dvh}
-.money{grid-column:1/-1}
-.main,.main.dock-off{grid-template-rows:62dvh auto auto}
-.split{display:none}
-.dock{container-type:inline-size;margin-top:var(--gap)}
-.main.dock-off .dock{display:none}
-.dock-in .sec{flex:none}
-.sec .scroll{max-height:60dvh}
-}
-/* Graph stage */
-.stage{position:relative;min-height:0;min-width:0;border-radius:1rem;border:1px solid var(--line);overflow:hidden;container:stage/size;view-transition-name:stage;
-background:radial-gradient(circle at 1px 1px,color-mix(in srgb,var(--line-2) 70%,transparent) 1px,transparent 0) 0 0/22px 22px,linear-gradient(180deg,var(--panel),var(--bg))}
-#graph{display:block;width:100%;height:100%;cursor:grab;touch-action:none}
-#graph:active{cursor:grabbing}
-.hud{position:absolute;left:.8rem;right:.8rem;display:flex;gap:.5rem;pointer-events:none;z-index:2}
-.hud *{pointer-events:auto}
-.hud.top{top:.7rem;justify-content:space-between;align-items:flex-start;flex-wrap:wrap}
-.hud.bot{bottom:.7rem;align-items:center}
-.hud .l,.hud .r{display:flex;gap:.45rem;align-items:center;flex-wrap:wrap}
-.hud .r{justify-content:flex-end}
-.hud .title{font-family:var(--display);font-weight:700;font-size:1rem;letter-spacing:-.01em}
-.hud button{padding:.25rem .7rem;font-size:.75rem;background:color-mix(in srgb,var(--bg) 70%,transparent)}
-.hud button.on{background:var(--agent-soft)}
-.legend{display:flex;gap:.7rem;flex-wrap:wrap;font-size:.7rem;color:var(--muted);background:color-mix(in srgb,var(--bg) 80%,transparent);border:1px solid var(--line);border-radius:.6rem;padding:.3rem .6rem}
-.legend span{display:inline-flex;align-items:center;gap:.3rem}
-.legend svg{width:.75rem;height:.75rem;cursor:default}
-@container stage (max-width:52rem){.legend{display:none}}
-.ticker{flex:1;min-width:0;font-family:var(--mono);font-size:.75rem;background:color-mix(in srgb,var(--bg) 85%,transparent);border:1px solid var(--line);border-radius:.6rem;padding:.35rem .6rem;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.ticker b{color:var(--agent);font-weight:600}
-.focuschip{flex:none;display:inline-flex;align-items:center;gap:.4rem;font-size:.75rem;font-weight:600;background:var(--agent-soft);border:1px solid var(--agent);color:var(--ink);border-radius:999px;padding:.25rem .75rem}
-.focuschip kbd{font-family:var(--mono);font-size:.68rem;border:1px solid var(--line-2);border-radius:.3rem;padding:0 .3rem;color:var(--muted)}
-/* graph primitives (SVG user units; the zoom fit scales them) */
-.link{fill:none;stroke:var(--line-2);stroke-width:1.6;transition:opacity .3s}
-.link.live{stroke:color-mix(in srgb,var(--agent) 55%,var(--line-2))}
-.link.ghost{stroke-dasharray:3 4;opacity:.45}
-.link.taken{stroke:var(--dec);stroke-width:2}
-.back{fill:none;stroke-width:1.6;stroke-dasharray:5 4;animation:dash 1.2s linear infinite}
-.back.warn{stroke:var(--warn)}.back.bad{stroke:var(--bad)}
-.bk{transition:opacity .3s}
-.elabel{font:600 10px var(--sans);fill:var(--dec);paint-order:stroke;stroke:var(--bg);stroke-width:4px;letter-spacing:.04em;transition:opacity .3s}
-.elabel.ghost{fill:var(--muted)}
-.blabel{font:600 10px var(--sans);paint-order:stroke;stroke:var(--bg);stroke-width:4px}
-.node{cursor:pointer;transition:opacity .3s}
-.node .shape{stroke-width:1.8;transition:fill .3s,stroke .3s}
-.node .nm{font:600 12.5px var(--sans);fill:var(--ink);paint-order:stroke;stroke:var(--bg);stroke-width:4px}
-.node .sb{font:400 10.5px var(--mono);fill:var(--muted);paint-order:stroke;stroke:var(--bg);stroke-width:4px}
-.node .inner{font:600 10.5px var(--mono);fill:var(--ink);pointer-events:none}
-.node.ghost{opacity:.4}
-.node.sel .shape{stroke:var(--ink)!important;stroke-width:2.6}
-.ring{fill:none;stroke-width:2;opacity:0;transform-box:fill-box;transform-origin:center}
-.node.active .ring{animation:ring 1.4s ease-out infinite}
-.packet{filter:url(#glow)}
-.tog circle{fill:var(--bg);stroke:var(--line-2);stroke-width:1.4}
-.tog text{font:600 9.5px var(--mono);fill:var(--ink);pointer-events:none}
-.node.collapsed .tog circle{fill:var(--agent-soft);stroke:var(--agent)}
-.node.collapsed .shape{stroke-dasharray:3 2}
-.node.haskids:hover .tog circle{stroke:var(--agent)}
-.node.fade,.link.fade,.elabel.fade{opacity:.35}
-.node.dim,.link.dim,.elabel.dim,.bk.dim{opacity:.08}
-/* hover preview + inspector */
-.hov{position:absolute;left:0;top:0;z-index:4;pointer-events:none;width:min(16rem,70cqw);background:color-mix(in srgb,var(--panel-2) 97%,transparent);border:1px solid var(--line-2);border-radius:.7rem;padding:.55rem .7rem;display:grid;gap:.35rem;font-size:.78rem;box-shadow:0 12px 30px rgba(0,0,0,.45)}
-.hov b{font-size:.88rem}
-.hov .row{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap}
-.hov .hint{color:var(--muted);font-size:.7rem}
-.insp{position:absolute;top:3.4rem;right:.8rem;z-index:3;width:min(21rem,calc(100cqw - 1.6rem));max-height:calc(100cqh - 6.8rem);overflow:auto;background:color-mix(in srgb,var(--panel-2) 96%,transparent);border:1px solid var(--line-2);border-radius:.9rem;padding:.85rem;display:grid;gap:.6rem;box-shadow:0 18px 40px rgba(0,0,0,.45);animation:pop .2s ease both}
-@container stage (max-width:40rem){.insp{top:auto;bottom:3.2rem;left:.6rem;right:.6rem;width:auto;max-height:55cqh}}
-.insp h3{margin:0;font-family:var(--display);font-size:1.1rem;letter-spacing:-.01em;display:flex;justify-content:space-between;gap:.5rem;align-items:start}
-.insp h3 button{padding:0 .5rem;font-size:1rem;line-height:1.5}
-.insp dl{margin:0;display:grid;grid-template-columns:auto minmax(0,1fr);gap:.35rem .75rem;font-size:.8rem}
-.insp dt{color:var(--muted)}
-.insp dd{margin:0;min-width:0;overflow-wrap:anywhere}
-.insp .act{display:flex;gap:.4rem;flex-wrap:wrap}
-/* Dock */
-.dock-in{height:100%;display:flex;flex-direction:column;gap:calc(var(--gap)*.7)}
-.sec{container:sec/inline-size;display:grid;grid-template-rows:var(--hdr) 0fr;flex:0 0 0;min-height:var(--hdr);min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:.85rem;overflow:hidden;
-transition:flex-grow .35s var(--ease),grid-template-rows .35s var(--ease)}
-.sec.open{grid-template-rows:var(--hdr) 1fr;flex-grow:var(--g,1)}
-@container dock (min-aspect-ratio:9/4){.dock-in{flex-direction:row}.sec{min-width:12rem;min-height:0}}
-.sh{display:flex;align-items:center;gap:.4rem;padding:0 .5rem 0 .2rem;border-bottom:1px solid transparent;min-width:0;transition:border-color .3s}
-.sec.open .sh{border-bottom-color:var(--line)}
-.sh .tgl{display:flex;align-items:center;gap:.45rem;flex:1;min-width:0;height:100%;padding:0 .5rem;font-family:var(--display);font-weight:700;font-size:.95rem;white-space:nowrap}
-.sh .tgl .lbl{font-family:var(--sans);overflow:hidden;text-overflow:ellipsis}
-.sh .x{display:flex;gap:.3rem;flex:none}
-.sh .x .s{display:none}
-@container sec (max-width:26rem){.sh .tgl .lbl{display:none}.sh .x .l{display:none}.sh .x .s{display:inline}}
-.badge{font-family:var(--mono);font-size:.7rem;font-weight:600;border-radius:999px;padding:0 .45rem;background:var(--bad-soft);color:var(--bad)}
-.sb{min-height:0;display:flex;flex-direction:column;overflow:hidden}
-.scroll{flex:1;min-height:0;overflow:auto;container-type:inline-size;overscroll-behavior:contain}
-.logbar{display:flex;gap:.5rem;align-items:center;justify-content:space-between;padding:.35rem .8rem;border-bottom:1px solid var(--line);font-size:.75rem;color:var(--muted);flex:none}
-.note{font-size:.72rem;color:var(--muted);margin:0;padding:.7rem .8rem}
-/* Log groups */
-.grp{border-bottom:1px solid var(--line)}
-.grp.hit{animation:hit 1.2s ease}
-.gh{width:100%;display:grid;grid-template-columns:1rem 4.4rem minmax(0,1fr) auto 1.8rem;gap:.5rem;align-items:center;padding:.45rem .8rem;color:var(--ink)}
-.gh:hover{background:var(--panel-2)}
-.gid{font-family:var(--mono);font-size:.74rem;color:var(--muted)}
-.gnm{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.gct{font-family:var(--mono);font-size:.72rem;color:var(--muted);text-align:right}
-.evs{font-family:var(--mono);font-size:.76rem;display:grid;gap:.3rem;padding:.1rem .8rem .65rem 2.3rem}
-.ev{display:grid;grid-template-columns:2.9rem 8.5rem minmax(0,1fr);gap:.5rem;animation:pop .25s ease both}
-.ev .t{color:var(--muted)}
-.ev .a{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ev .m small{display:block;color:var(--muted);font-size:.66rem}
-@container (max-width:27rem){.ev{grid-template-columns:2.6rem minmax(0,1fr);gap:0 .5rem}.ev .t{grid-row:span 2}.evs{padding-left:1.2rem}.gh{grid-template-columns:1rem 4rem minmax(0,1fr) 1.6rem}.gh .gst{display:none}}
-.a.pl{color:var(--ink)}.a.sp{color:var(--agent)}.a.ch{color:var(--run)}.a.vf{color:var(--verify)}.a.sf{color:var(--ok)}.a.dc{color:var(--dec)}
-.ev .w{color:var(--warn)}.ev .e{color:var(--bad)}.ev .o{color:var(--ok)}.ev .f{color:var(--money)}.ev .vb{color:var(--bad);font-weight:600}
-.res{font-size:.75rem;color:var(--muted)}
-.idle{display:block;padding:.8rem;color:var(--muted);font-size:.82rem}
-/* Case queue */
-.qrow{border-bottom:1px solid var(--line)}
-.qh{width:100%;display:grid;grid-template-columns:1rem 4.6rem minmax(0,1fr) minmax(0,1.25fr) auto 5.2rem;grid-template-areas:"c i p t s v";gap:.3rem .6rem;align-items:center;padding:.5rem .8rem;color:var(--ink)}
-.qh:hover,.qrow.sel .qh{background:var(--panel-2)}
-.qrow.open .qh{background:color-mix(in srgb,var(--agent-soft) 55%,var(--panel))}
-.qh .chev{grid-area:c}.q-id{grid-area:i;font-family:var(--mono);font-size:.74rem;color:var(--muted)}
-.q-pt{grid-area:p;font-weight:600;min-width:0}.q-task{grid-area:t;min-width:0}.q-st{grid-area:s}.q-amt{grid-area:v;font-family:var(--mono);font-size:.75rem;text-align:right;white-space:nowrap}
-.q-amt.got{color:var(--money)}
-.q-pt small,.q-task small{display:block;font-weight:400;color:var(--muted);font-size:.74rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-@container (max-width:34rem){.qh{grid-template-columns:1rem 4.2rem minmax(0,1fr) auto;grid-template-areas:"c i p s" ". t t v"}}
-@container (max-width:22rem){.qh{grid-template-columns:1rem minmax(0,1fr) auto;grid-template-areas:"c i s" ". p p" ". t v"}.tl{padding-left:1.2rem}}
-.tl{padding:.3rem .9rem .8rem 2.4rem;display:grid;gap:.6rem}
-.steps{list-style:none;margin:0;padding:0;display:grid}
-.st{display:grid;grid-template-columns:1.1rem minmax(0,1fr);gap:.55rem;position:relative;padding:.3rem 0}
-.st::before{content:"";position:absolute;left:calc(.55rem - 1px);top:1.35rem;bottom:-.3rem;width:2px;background:var(--line)}
-.st:last-child::before{display:none}
-.st>div{display:grid;gap:.2rem;min-width:0}
-.gl{width:.85rem;height:.85rem;margin-top:.22rem;border-radius:50%;border:2px solid var(--c,var(--agent));background:var(--cs,var(--agent-soft));justify-self:center;position:relative;z-index:1}
-.t-d{--c:var(--dec);--cs:var(--dec-soft)}.t-d .gl{border-radius:2px;transform:rotate(45deg) scale(.82)}
-.t-r{--c:var(--warn);--cs:var(--warn-soft)}.t-g{--c:var(--verify);--cs:var(--verify-soft)}.t-b{--c:var(--bad);--cs:var(--bad-soft)}
-.t-o{--c:var(--ok);--cs:var(--ok-soft)}.t-h{--c:var(--bad);--cs:var(--bad-soft)}.t-h .gl{border-radius:2px}
-.st.s-warn{--c:var(--warn);--cs:var(--warn-soft)}.st.s-err{--c:var(--bad);--cs:var(--bad-soft)}
-.st.s-active .gl{animation:pulse 1.2s ease-in-out infinite}
-.st.wait{--c:var(--line-2);--cs:transparent;color:var(--muted)}
-.sn{font-size:.82rem;overflow-wrap:anywhere}
-.sn .mono{color:var(--muted);font-size:.74rem}
-.smeta{font-size:.7rem;color:var(--muted)}
-/* Staff tray */
-.esc{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16rem),1fr));gap:.6rem;padding:.7rem .8rem}
-.ecard{border:1px solid var(--line);border-left:3px solid var(--bad);border-radius:.6rem;padding:.7rem .85rem;display:grid;gap:.45rem;background:var(--panel-2);animation:pop .3s ease both}
-.ecard.ok{border-left-color:var(--ok)}
-.ecard b{font-size:.85rem}.ecard p{margin:0;color:var(--muted);font-size:.8rem}
-.ecard .act{display:flex;gap:.4rem;flex-wrap:wrap}
-.ecard button{padding:.3rem .7rem;font-size:.75rem}
-/* Overlays */
-.veil{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:rgba(3,6,14,.82);backdrop-filter:blur(3px);animation:fadein .4s ease both;padding:1rem}
-.veil .inner{text-align:center;display:grid;gap:.6rem}
-.veil .big{font-family:var(--display);font-size:clamp(3.5rem,10vw,8rem);font-weight:800;letter-spacing:-.04em;line-height:1}
-.veil p{margin:0;color:var(--muted);font-size:1.1rem}
-.veil.out{animation:fadeout .5s ease forwards}
-.report{width:min(48rem,100%);background:linear-gradient(160deg,var(--ok-soft),var(--panel) 55%);border:1px solid color-mix(in srgb,var(--ok) 40%,var(--line));border-radius:1.25rem;padding:clamp(1rem,2.5vw,1.7rem);display:grid;gap:1.1rem;animation:rise .5s var(--ease) both;max-height:calc(100dvh - 2rem);overflow:auto}
-.report h3{font-family:var(--display);font-size:clamp(1.4rem,1rem + 1.6vw,2.2rem);font-weight:800;letter-spacing:-.02em;margin:0;text-wrap:balance}
-.report .hero{font-family:var(--display);font-size:clamp(3rem,1.5rem + 5vw,5.5rem);font-weight:800;color:var(--money);letter-spacing:-.04em;line-height:1}
-.report .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(8rem,1fr));gap:.75rem}
-.report .row div{display:grid;gap:.1rem}
-.report .row b{font-family:var(--display);font-size:1.6rem;font-weight:700}
-.report p{margin:0;color:var(--muted);max-width:70ch}
-.report .act{display:flex;gap:.5rem;flex-wrap:wrap}
-.toast{position:fixed;left:50%;bottom:calc(1.2rem + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:15;background:var(--panel-2);border:1px solid var(--bad);border-radius:.75rem;padding:.6rem 1rem;font-size:.82rem;max-width:min(92vw,36rem);box-shadow:0 10px 30px rgba(0,0,0,.5);animation:pop .25s ease both}
-@keyframes pop{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
-@keyframes rise{from{opacity:0;transform:translateY(30px) scale(.98)}to{opacity:1;transform:none}}
-@keyframes fadein{from{opacity:0}to{opacity:1}}
-@keyframes fadeout{to{opacity:0;visibility:hidden}}
-@keyframes bump{40%{transform:scale(1.05)}}
-@keyframes ring{0%{opacity:.8;transform:scale(1)}100%{opacity:0;transform:scale(1.9)}}
-@keyframes dash{to{stroke-dashoffset:-18}}
-@keyframes pulse{50%{box-shadow:0 0 0 .3rem color-mix(in srgb,var(--c) 25%,transparent)}}
-@keyframes hit{0%{background:var(--agent-soft)}100%{background:transparent}}
-::view-transition-group(*){animation-duration:.35s;animation-timing-function:var(--ease)}
-@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}
-::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation:none!important}}
-</style>
-</head>
-<body>
-<div class="app">
-<header>
-<div class="brand">
-<div class="mark">Rx</div>
-<div>
-<h1>EMR Copilot</h1>
-<div class="sub"><span>Sunrise Family Medicine · 4 providers</span><span class="chip c">Nemotron on Crusoe</span><span class="chip d" id="modeChip">DEMO_MODE · scripted</span></div>
-</div>
-</div>
-<div class="right">
-<div class="clock">
-<span class="lbl">Clinic time</span>
-<div class="t num"><span id="clock">22:00</span><small id="clockSub">staff leaving</small></div>
-<div class="track"><i id="track"></i></div>
-</div>
-<div class="ctrls">
-<button id="run">Run overnight</button>
-<button id="speed" class="ghost">Speed 1×</button>
-<button id="present" class="ghost" aria-pressed="false">Presenter</button>
-<button id="reset" class="ghost">Reset</button>
-</div>
-</div>
-</header>
-<section class="strip" aria-label="Run summary">
-<button class="tile money" id="moneyCard" data-k="money" aria-expanded="false" aria-controls="drawer"><span class="lbl">Revenue recovered tonight</span><span class="big num" id="money">$0<span class="c">.00</span></span><span class="brk num" id="moneyBrk">0 claims fixed · 0 auths secured · 0.0 staff hours saved</span><span class="hint chev" aria-hidden="true"></span></button>
-<button class="tile ok" data-k="done" aria-expanded="false" aria-controls="drawer"><span class="lbl">Resolved</span><span class="n num" id="kDone">0</span><span class="hint chev" aria-hidden="true"></span></button>
-<button class="tile bad" data-k="esc" aria-expanded="false" aria-controls="drawer"><span class="lbl">Needs a human</span><span class="n num" id="kEsc">0</span><span class="hint chev" aria-hidden="true"></span></button>
-<button class="tile a" data-k="kids" aria-expanded="false" aria-controls="drawer"><span class="lbl">Sub-agents</span><span class="n num" id="kKids">0</span><span class="hint chev" aria-hidden="true"></span></button>
-<button class="tile d" data-k="dec" aria-expanded="false" aria-controls="drawer"><span class="lbl">Decisions</span><span class="n num" id="kDec">0</span><span class="hint chev" aria-hidden="true"></span></button>
-<button class="tile w" data-k="retry" aria-expanded="false" aria-controls="drawer"><span class="lbl">Recoveries</span><span class="n num" id="kRetry">0</span><span class="hint chev" aria-hidden="true"></span></button>
-<button class="tile v" data-k="block" aria-expanded="false" aria-controls="drawer"><span class="lbl">Verifier blocks</span><span class="n num" id="kBlock">0</span><span class="hint chev" aria-hidden="true"></span></button>
-</section>
-<div class="drawer acc" id="drawer"><div class="in"><div class="box" id="drawerBody"></div></div></div>
-<main class="main" id="main">
-<section class="stage" id="stage" aria-label="Live agent graph">
-<svg id="graph" role="img" aria-label="Agent spawning tree"></svg>
-<div class="hud top">
-<div class="l"><span class="title">Agent graph</span>
-<div class="legend" aria-label="Legend">
-<span><svg viewBox="-7 -7 14 14"><polygon points="-6,0 -3,-5.2 3,-5.2 6,0 3,5.2 -3,5.2" fill="none" stroke="#e8eefa" stroke-width="1.6"/></svg>Planner</span>
-<span><svg viewBox="-7 -7 14 14"><circle r="5" fill="#0f3142" stroke="#53cfe6" stroke-width="1.6"/></svg>Sub-agent</span>
-<span><svg viewBox="-7 -7 14 14"><polygon points="0,-6 6,0 0,6 -6,0" fill="#1c2846" stroke="#dce6ff" stroke-width="1.6"/></svg>Decision</span>
-<span><svg viewBox="-7 -7 14 14"><polygon points="-2.5,-6 2.5,-6 6,-2.5 6,2.5 2.5,6 -2.5,6 -6,2.5 -6,-2.5" fill="#251e45" stroke="#b49dff" stroke-width="1.6"/></svg>Verifier</span>
-<span><svg viewBox="-7 -7 14 14"><path d="M-5,2 A5,5 0 1,1 2,5" fill="none" stroke="#f59e5b" stroke-width="1.6"/></svg>Recovery</span>
-<span><svg viewBox="-7 -7 14 14"><circle r="5" fill="#10301f" stroke="#5fd49b" stroke-width="1.6"/></svg>Closed</span>
-<span><svg viewBox="-7 -7 14 14"><rect x="-5" y="-5" width="10" height="10" rx="2" fill="#3a171c" stroke="#f4777b" stroke-width="1.6"/></svg>Human</span>
-</div></div>
-<div class="r"><button class="ghost" id="collapseAll">Collapse all</button><button class="ghost" id="expandAll">Expand all</button><button class="ghost on" id="follow" aria-pressed="true">Auto-follow</button><button class="ghost" id="fit">Fit</button><button class="ghost on" id="dockBtn" aria-pressed="true" aria-controls="dock">Dock</button></div>
-</div>
-<div class="hud bot"><button class="focuschip" id="focusChip" hidden>Focus: <b></b><kbd>Esc</kbd></button><div class="ticker" id="ticker">Idle. Press <b>Run overnight</b>: the Planner splits the backlog across 4 specialists, who spawn sub-agents per task.</div></div>
-<div class="hov" id="hov" hidden></div>
-<div class="insp" id="insp" hidden></div>
-</section>
-<div class="split" id="split" role="separator" tabindex="0" aria-controls="dock" aria-label="Resize dock (double-click to reset)" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="100" aria-valuenow="30" title="Drag to resize · double-click to reset"></div>
-<aside class="dock" id="dock" aria-label="Dock">
-<div class="dock-in">
-<section class="sec" data-sec="log" style="--g:1.15">
-<div class="sh"><button class="plain tgl" aria-expanded="false"><span class="chev"></span>Live log <span class="lbl" id="logCount">0 events</span></button>
-<span class="x"><button class="ghost sm" id="grpCollapse" aria-label="Collapse all groups"><span class="l">Collapse all</span><span class="s">− all</span></button><button class="ghost sm" id="grpExpand" aria-label="Expand all groups"><span class="l">Expand all</span><span class="s">+ all</span></button></span></div>
-<div class="sb"><div class="logbar" id="logbar" hidden><span id="filterTxt"></span><button class="ghost sm" id="clearFilter">Show all</button></div>
-<div class="scroll" id="log"><span class="idle">Waiting for the run to start. Events group by case; the newest case opens on top.</span></div></div>
-</section>
-<section class="sec" data-sec="queue" style="--g:1">
-<div class="sh"><button class="plain tgl" aria-expanded="false"><span class="chev"></span>Tonight's backlog <span class="lbl" id="caseCount">synthetic</span></button></div>
-<div class="sb"><div class="scroll"><div id="rows"></div><p class="note">All patients, payers, IDs and NPIs are fictional. Denials use standard CARC reason codes. This run is scripted in the browser; in live mode every node is a Nemotron call on Crusoe Managed Inference.</p></div></div>
-</section>
-<section class="sec" data-sec="esc" style="--g:.6">
-<div class="sh"><button class="plain tgl" aria-expanded="false"><span class="chev"></span>Needs a human <span class="badge" id="escCount" hidden>0</span></button></div>
-<div class="sb"><div class="scroll"><div class="esc" id="esc"></div></div></div>
-</section>
-</div>
-</aside>
-</main>
-</div>
-<div id="overlay"></div>
-<div class="toast" id="toast" hidden></div>
-<script>
 /* ======================= script ======================= */
 const MODEL={planner:"Nemotron-3-Super-120B",worker:"Nemotron-3-Nano-30B",verifier:"Nemotron-3-Ultra-550B"};
 const SPECS=[["ChartPrep","Pre-visit summaries"],["PriorAuth","Evidence → payer → submit"],["Referral","Specialist, records, send"],["Denials","Read code, fix or appeal"]];
@@ -432,10 +58,10 @@ ev:[["a","EvidenceGatherer","BSA 15% · 2 topicals failed"],
 ["b","Verifier","dose doesn't match order",{why:"Order in the chart is 300 mg every 2 weeks after the loading dose. Form listed 600 mg maintenance. Sent back to FormFiller.",back:1,toast:"Verifier blocked PA-1045 before it went out: dose on the form didn't match the order. Sending it back."}],
 ["a","FormFiller","300 mg q2w corrected"],["a","PortalSubmitter","submitted to Aetna"],["g","Verifier","dose matches order"],["o","Approved","auth AET-20418"]]},
 {id:"CP-2204",pt:"Evelyn Brooks",dob:"1947-01-08",type:"Chart prep",ag:"ChartPrep",detail:"Diabetes follow-up · 11:00",mins:20,value:0,short:"Brooks · diabetes",
-ev:[["a","LabSummarizer","K+ 6.1 mmol/L (critical)","err"],["a","CareGapScanner","retinal + foot exam due","flag"],
-["d","Urgent finding?","Yes",{why:"Potassium 6.1 mmol/L is above the critical threshold. A physician must review before the visit.",ghost:["No","summary only"]}],
-["h","Flag for Dr. Patel","critical lab review"]],
-esc:"Potassium came back at 6.1 mmol/L (critical). Dr. Patel should review and decide whether to call the patient in early.",result:"Critical lab needs physician"},
+ev:[["a","LabSummarizer","result flagged for physician review","err"],["a","CareGapScanner","retinal + foot exam due","flag"],
+["d","Flagged for physician review?","Yes",{why:"The lab system flagged a result for physician review. Agents never assess clinical content.",ghost:["No","summary only"]}],
+["h","Flag for Dr. Patel","lab result flagged for physician review"]],
+esc:"Lab result flagged for physician review. Agents never assess clinical content.",result:"Lab result flagged for physician review"},
 {id:"DN-3310",pt:"Marcus Johnson",dob:"1975-10-29",type:"Claim denial",ag:"Denials",detail:"<span class=code>CO-29</span> timely filing · Humana",mins:35,value:318.75,vk:"claim",short:"Johnson · CO-29",
 ev:[["a","ERAReader","CARC CO-29 · filing limit passed"],["a","ClearinghouseSearch","original sent 03/02 · accepted"],
 ["d","Proof of timely filing?","Yes",{why:"Clearinghouse acceptance report dated 03/02 is inside Humana's 90-day window",ghost:["No","write off"]}],
@@ -480,7 +106,7 @@ function subtree(id){const s=new Set(),walk=d=>{s.add(d.id);d.children.forEach(w
 function ancestors(id){const s=new Set();let d=nodesById[id];while(d&&d.parentId){d=nodesById[d.parentId];s.add(d.id)}return s}
 function setAll(c){Object.values(nodesById).forEach(d=>{if(canFold(d)&&d.type!=="planner")d.collapsed=c});render()}
 const caseNode={}, specNode={};
-const modelFor=d=>d.type==="planner"?MODEL.planner:(d.type==="g"||d.type==="b")?MODEL.verifier:["a","d","r","spec"].includes(d.type)?MODEL.worker:"—";
+const modelFor=d=>d.model||(d.type==="planner"?MODEL.planner:(d.type==="g"||d.type==="b")?MODEL.verifier:["a","d","r","spec"].includes(d.type)?MODEL.worker:"—");
 function statePill(d){const [t,k]={active:["Running","s-working"],done:["Finished","s-done"],warn:["Failed, recovering","s-retry"],err:["Blocked by data","s-esc"],human:["Waiting for staff","s-esc"]}[d.status]||[d.status,"s-queued"];return `<span class="pill ${k}">${t}</span>`}
 /* ======================= graph setup ======================= */
 const svg=d3.select("#graph");
@@ -673,6 +299,7 @@ ${c?`<dt>Case</dt><dd class="mono">${c.id} · ${esc(c.type)}</dd>`:""}
 ${d.type==="case"?`<dt>Task</dt><dd>${c.detail}</dd>`:""}
 ${d.status?`<dt>State</dt><dd>${statePill(d)}</dd>`:""}</dl>
 ${d.why?`<div class="${whyCls}">${esc(d.why)}</div>`:""}
+${c&&["case","a","g","b","h","o"].includes(d.type)?liveChecklist(c.id):""}
 ${canFold(d)?`<div class="why">${d.collapsed?`Branch folded: ${countDesc(d)} nodes hidden. Click the node again to expand.`:"Click the node again to fold this branch."}</div>`:""}
 ${d.ghost?`<div class="why">Branch not taken. Shown so you can see the alternative the agent ruled out.</div>`:""}
 ${c?`<div class="act">${focusId===caseNode[c.id]?.id?`<button class="ghost sm" data-unfocus>Exit focus</button>`:`<button class="sm" data-focus="${c.id}">Focus case</button>`}<button class="ghost sm" data-open="${c.id}">Open in backlog</button></div>`:""}`;
@@ -874,8 +501,9 @@ render();
 }
 async function run(){
 if(running)return;
+if(LIVE.on)return runLive();
 hardReset();const id=++runId;running=true;
-$("run").disabled=true;$("run").textContent="Running…";$("clockSub").textContent="unattended";$("modeChip").textContent="DEMO_MODE · scripted run";
+$("run").disabled=true;$("run").textContent="Running…";$("clockSub").textContent="unattended";setModeChip("scripted run");
 await walkAway(id).catch(()=>{});if(runId!==id)return;
 rootData._planner.status="active";render();
 log("Planner",`Goal received: ${CASES.length} cases. Splitting across ${SPECS.length} specialists, ${PAR} cases in parallel.`,"","","pl");
@@ -908,14 +536,14 @@ $("overlay").innerHTML=`<div class="veil" role="dialog" aria-label="Morning repo
 <div><span class="lbl">Decisions</span><b class="num">${n.dec}</b></div>
 <div><span class="lbl">Bad outputs stopped</span><b class="num">${n.block}</b></div>
 </div>
-<p>Every closed case passed the Verifier before it went out. ${n.retry} failures (portal timeouts, empty or pending labs, a busy fax line, a clearinghouse rejection) were recovered without anyone touching them.</p>
+<p>Every closed case passed the Verifier before it went out. ${LIVE.on?`${n.retry} tool failures were recovered without anyone touching them. Live run on ${esc(MODEL.worker)}.`:`${n.retry} failures (portal timeouts, empty or pending labs, a busy fax line, a clearinghouse rejection) were recovered without anyone touching them.`}</p>
 <div class="act"><button id="closeReport">See the graph</button><button class="ghost" id="replay">Run again</button></div>
 </div></div>`;
 $("closeReport").onclick=()=>{$("overlay").innerHTML="";setFollow(true);fit()};
 $("replay").onclick=()=>{$("overlay").innerHTML="";run()};
 }
 function hardReset(){
-runId++;running=false;$("overlay").innerHTML="";
+runId++;LIVE.ctrl?.abort();LIVE.cases={};running=false;$("overlay").innerHTML="";
 state={};filter=null;selected=null;focusId=null;$("insp").hidden=true;$("focusChip").hidden=true;hideHover();
 Object.keys(caseNode).forEach(k=>delete caseNode[k]);groups={};
 n={done:0,esc:0,kids:0,dec:0,retry:0,block:0,hrs:0,money:0,claims:0,auths:0,steps:0,events:0};
@@ -924,16 +552,204 @@ gLinks.selectAll("*").remove();gNodes.selectAll("*").remove();gElab.selectAll("*
 buildBase();
 $("log").innerHTML=`<span class="idle">Waiting for the run to start. Events group by case; the newest case opens on top.</span>`;$("logCount").textContent="0 events";
 $("ticker").innerHTML=`Idle. Press <b>Run overnight</b>: the Planner splits ${CASES.length} cases across 4 specialists, who spawn sub-agents per task.`;
-$("run").disabled=false;$("run").textContent="Run overnight";$("clockSub").textContent="staff leaving";$("modeChip").textContent="DEMO_MODE · scripted";
+$("run").disabled=false;$("run").textContent="Run overnight";$("clockSub").textContent="staff leaving";setModeChip();
 $("caseCount").textContent=`${CASES.length} cases · synthetic`;
 setFollow(true);renderRows();renderStats();renderEsc();applyFilter();render();
 }
+/* ======================= live mode: SSE from /api/run ======================= */
+/* Scripted DEMO_MODE stays as the fallback: no key on the server, DEMO_MODE=1, or ?demo in the URL. */
+const LIVE={on:false,cfg:null,ctrl:null,cases:{}};
+const forceDemo=new URLSearchParams(location.search).has("demo");
+function setModeChip(st){
+const c=LIVE.cfg;$("modeChip").textContent=LIVE.on?`LIVE · ${st||"ready"}`:`DEMO_MODE · ${st||"scripted"}`;
+const chip=document.querySelector(".chip.c");
+if(chip&&c)chip.textContent=LIVE.on&&!/crusoe/i.test(c.provider)?`${c.models.worker} · stand-in for Nemotron`:"Nemotron on Crusoe";
+const note=document.querySelector(".note");
+if(note&&LIVE.on)note.textContent=`All patients, payers, IDs and NPIs are fictional. Live run: every checklist, tool call and verdict is a real model call (${c.models.worker} via ${c.provider}); tools are deterministic mocks.`;
+}
+fetch("/api/config").then(r=>r.ok?r.json():null).then(cfg=>{
+if(!cfg)return;LIVE.cfg=cfg;LIVE.on=cfg.live&&!forceDemo;
+if(LIVE.on)Object.assign(MODEL,cfg.models);
+if(!running)setModeChip();
+}).catch(()=>{});
+function liveChecklist(cid){
+const L=LIVE.cases[cid];if(!L||!L.checklist.length)return "";
+const last=L.rounds[L.rounds.length-1]||[];
+return `<div class="why v"><b>Done-checklist${L.rounds.length?` · Verifier round ${L.rounds.length}`:" · not verified yet"}</b><ol class="chk">${L.checklist.map((x,i)=>{const v=last[i];
+return `<li class="${v?(v.pass?"ok":"no"):""}">${v?(v.pass?"✓":"✗"):"…"} ${esc(x.check)}${v?`<small>${esc(v.reason)}</small>`:""}</li>`}).join("")}</ol></div>`;
+}
+function toolSub(e){
+const r=e.result||{};
+if(e.status==="invalid")return "invalid args: "+r;
+if(e.status==="error")return r.error||"failed";
+switch(e.tool){
+case"read_chart":return "chart read";
+case"read_era":return `${r.carc||"ERA"} · ${r.amount!=null?money(r.amount):""}`;
+case"check_npi":return (r.matches||[]).map(m=>m.npi+(m.specialty?" "+m.specialty:"")).join(", ")||"no match";
+case"payer_criteria":return `${(r.requires||[]).length} criteria`;
+case"submit_claim":case"submit_auth":case"fax_send":return `${r.reference} · held for Verifier`;
+case"prepare_packet":return `${r.items} items saved`;
+case"escalate_to_staff":return "routed to staff";
+}
+return JSON.stringify(r).slice(0,60);
+}
+function clip(o,n=420){const s=typeof o==="string"?o:JSON.stringify(o);return s.length>n?s.slice(0,n)+"…":s}
+function blameNode(L,failed){
+const txt=failed.map(f=>f.check+" "+f.reason).join(" ");
+if(/NPI|specialt|provider/i.test(txt)){const npi=[...L.tools].reverse().find(d=>d.name==="check_npi");if(npi)return npi}
+const named=[...L.tools].reverse().find(d=>txt.includes(d.name));if(named)return named;
+return [...L.tools].reverse().find(d=>/^(submit_|fax_send|prepare_packet)/.test(d.name))||L.check;
+}
+function liveAdd(L,type,name,sub,extra,color){
+if(L.tail.status==="active"&&L.tail.type!=="case")L.tail.status="done";
+const nd=mk(type,name,sub,L.tail,{caseId:L.cid,edge:L.edge,status:"active",...extra});L.edge=null;
+packet(L.tail,nd,css(color||"--agent"));L.tail=nd;return nd;
+}
+function onLive(e,id){
+if(runId!==id||e.type==="ping")return;
+const c=e.caseId?CASES.find(x=>x.id===e.caseId):null,L=c?LIVE.cases[c.id]:null;
+if(e.caseId&&!c)return;
+switch(e.type){
+case"run_start":
+log("Planner",`Goal received: ${esc(e.goal)} ${e.cases.length} cases, ${e.parallel} in parallel.`,"","","pl");break;
+case"delegated":{
+const spec=specNode[c.ag];spec.status="active";
+const cn=mk("case",c.id,c.short,spec,{caseId:c.id});caseNode[c.id]=cn;
+LIVE.cases[c.id]={cid:c.id,cn,tail:cn,edge:null,checklist:[],rounds:[],tools:[],check:null};
+state[c.id]="working";packet(spec,cn,css("--agent"));
+log("Planner",`Delegated ${c.type.toLowerCase()} → ${c.ag}`,"",c.id,"pl");break;}
+case"checklist":{
+L.checklist=e.items;
+L.check=liveAdd(L,"a","Done-checklist",`${e.items.length} checks`,{model:MODEL.planner,why:e.items.map((x,i)=>`${i+1}. ${x.check}`).join("\n")});
+log("Planner",`Done-checklist: ${e.items.map((x,i)=>`${i+1}. ${esc(x.check)}`).join(" ")}`,"",c.id,"pl");break;}
+case"tool_call":{
+const bad=e.status!=="ok",prev=L.tools[L.tools.length-1],sub=toolSub(e);
+const why=`Args: ${clip(e.args)}\nResult: ${clip(e.result)}`;
+let nd;
+if(!bad&&prev&&prev.name===e.tool&&prev.status==="warn"){
+nd=liveAdd(L,"r",e.tool,sub,{model:MODEL.worker,why:"Recovered automatically after: "+prev.sub+"\n"+why},"--warn");
+backs.push({key:nd.id,from:nd.id,to:prev.id,cls:"warn",label:"retry"});prev.status="done";n.retry++;state[c.id]="working";
+log(c.ag,`Recovered: ${e.tool} → ${esc(sub)}`,"o",c.id,"sp");
+}else{
+nd=liveAdd(L,"a",e.tool,sub,{model:MODEL.worker,why,status:bad?"warn":"active"},bad?"--warn":"--agent");n.kids++;
+if(bad)state[c.id]="retry";else if(state[c.id]==="retry")state[c.id]="working";
+log(e.tool,bad?`failed: ${esc(sub)}`:esc(sub),bad?"w":"",c.id,"ch");
+}
+L.tools.push(nd);break;}
+case"check_result":{
+L.rounds.push(e.verdicts);
+const ok=e.verdicts.filter(v=>v.pass).length,why=e.verdicts.map(v=>`${v.pass?"✓":"✗"} ${v.check}: ${v.reason}`).join("\n");
+if(e.pass){
+liveAdd(L,"g","Verifier",`${ok}/${e.verdicts.length} checks pass`,{model:MODEL.verifier,why},"--verify");
+if(state[c.id]==="fix")state[c.id]="working";
+log("Verifier",`✓ ${ok}/${e.verdicts.length} checks pass`,"o",c.id,"vf");
+}else{
+const failed=e.verdicts.filter(v=>!v.pass),target=blameNode(L,failed);
+const nd=liveAdd(L,"b","Verifier",`${failed.length} of ${e.verdicts.length} checks failed`,{model:MODEL.verifier,why},"--bad");
+if(target)backs.push({key:nd.id,from:nd.id,to:target.id,cls:"bad",label:"sent back"});
+state[c.id]="fix";n.block++;
+log("Verifier",`Blocked: ${esc(failed[0].reason)}`,"vb",c.id,"vf");
+toast(`Verifier blocked ${c.id} before it went out: ${failed[0].reason}`);
+}
+break;}
+case"replan":{
+const ans=`No → re-plan ${e.round}/2`;
+liveAdd(L,"d","All checks pass?",ans,{answer:ans,model:MODEL.planner,why:e.failed.map(f=>`${f.check}: ${f.reason}`).join("\n")},"--dec");
+L.edge="re-plan";n.dec++;
+log("Planner",`Re-plan ${e.round}/2: fix ${e.failed.length} failed check${e.failed.length>1?"s":""}`,"",c.id,"pl");break;}
+case"loop_detected":{
+liveAdd(L,"d","Loop detected?","Yes → stop",{answer:"Yes → stop",why:e.reason},"--bad");
+L.edge="stop";n.dec++;
+log("Loop detector",esc(e.reason),"e",c.id,"dc");break;}
+case"escalated":{
+const label={rule:"Staff only",agent:"Needs staff",loop:"Loop stopped",verifier:"Checks still failing",error:"Agent error"}[e.by]||"Needs staff";
+liveAdd(L,"h",label,e.reason.length>48?e.reason.slice(0,46)+"…":e.reason,{status:"done",why:e.reason},"--bad");
+c.esc=esc(e.reason);c.result=label;
+state[c.id]="esc";n.esc++;L.cn.status="human";renderEsc();
+log("Planner",`Routed to staff: ${esc(e.reason)}`,"e",c.id,"pl");autoClose(c.id);break;}
+case"closed":{
+liveAdd(L,"o","Closed",e.released.join(", ")||"all checks passed",{status:"done",money:c.value>0,why:e.summary},"--ok");
+state[c.id]="done";n.done++;n.hrs+=c.mins;L.cn.status="done";
+if(c.value){n.money+=c.value;c.vk==="auth"?n.auths++:n.claims++;tweenMoney()}
+log("Planner",`Closed: ${esc(e.summary)}`,c.value?"f":"o",c.id,"pl");autoClose(c.id);break;}
+case"error":
+log("System",esc(e.message),"e",e.caseId||"","pl");break;
+case"run_end":
+LIVE.ended=true;setModeChip("done");finish(id);return;
+}
+if(c){
+n.steps=Math.round((n.done+n.esc)/CASES.length*TOTAL);
+const spec=specNode[c.ag];if(!Object.values(caseNode).some(x=>x.status==="active"&&nodesById[x.parentId]===spec))spec.status="done";
+updateRow(c);
+}
+renderStats();render();
+}
+/* One request per case, CASE_CONCURRENCY lanes in the browser: no single server request has to fit the whole
+   backlog inside the host's function time limit (Vercel Hobby: 300 s). */
+async function streamCase(cid,id,signal){
+const res=await fetch(`/api/run?cases=${encodeURIComponent(cid)}&parallel=1`,{signal,headers:{Accept:"text/event-stream"}});
+if(!res.ok||!res.body){const j=await res.json().catch(()=>({}));throw new Error(j.error||"HTTP "+res.status)}
+const reader=res.body.pipeThrough(new TextDecoderStream()).getReader();let buf="";
+for(;;){
+const {value,done}=await reader.read();if(done||runId!==id)break;
+buf+=value;let i;
+while((i=buf.indexOf("\n\n"))>=0){
+const data=buf.slice(0,i).split("\n").filter(l=>l.startsWith("data:")).map(l=>l.slice(5).trim()).join("\n");buf=buf.slice(i+2);
+if(!data)continue;
+try{const e=JSON.parse(data);if(e.type!=="run_start"&&e.type!=="run_end")onLive(e,id)}catch(err){console.error("live event",err)}
+}
+}
+}
+async function runLive(){
+hardReset();const id=++runId;running=true;
+$("run").disabled=true;$("run").textContent="Running…";$("clockSub").textContent="unattended";setModeChip("running");
+await walkAway(id).catch(()=>{});if(runId!==id)return;
+rootData._planner.status="active";render();
+const ctrl=new AbortController();LIVE.ctrl=ctrl;
+const lanes=Math.max(1,Math.min(20,LIVE.cfg?.concurrency||4)),queue=CASES.map(c=>c.id);
+log("Planner",`Goal received: ${CASES.length} cases. Splitting across ${SPECS.length} specialists, ${lanes} cases in parallel.`,"","","pl");
+let fatal=null;
+await Promise.all(Array.from({length:lanes},async()=>{
+while(queue.length&&runId===id&&!fatal){
+const cid=queue.shift();
+try{await streamCase(cid,id,ctrl.signal)}
+catch(err){
+if(runId!==id||err.name==="AbortError")return;
+if(!caseNode[cid]){fatal=err;return} /* nothing started: endpoint itself is failing */
+log("System",`${cid}: connection lost (${esc(err.message)})`,"e",cid,"pl");
+}
+}
+}));
+if(runId!==id)return;
+if(fatal){
+running=false;setModeChip("error");$("run").disabled=false;$("run").textContent="Run again";$("clockSub").textContent="run failed";
+log("System",`Live run failed: ${esc(fatal.message)}. Scripted fallback: add ?demo to the URL.`,"e","","pl");toast("Live run failed: "+fatal.message);return;
+}
+const left=CASES.filter(c=>!["done","esc"].includes(state[c.id]));
+if(left.length)log("System",`${left.length} case${left.length===1?"":"s"} cut off before finishing: ${left.map(c=>c.id).join(", ")}.`,"e","","pl");
+LIVE.ended=true;setModeChip(left.length?`done · ${left.length} cut off`:"done");finish(id);
+}
+/* ======================= Playbook panel (Version N+1) ======================= */
+/* Secondary on purpose: version, the Reviewer's one change, and before/after scores from /runs. */
+function renderPlaybook(d){
+const el=$("pb");if(!el||!d)return;$("pbVer").textContent="v"+d.current;
+const L=d.latest;
+if(!L){el.innerHTML=`<p class="empty">Playbook v${d.current}. No Version N+1 run yet: <span class="mono">npm run evolve</span>.</p>`;return}
+const sc=(a,b)=>`<b class="num">${a}</b> → <b class="num ${b>a?"up":b<a?"down":""}">${b}</b>`;
+el.innerHTML=`<p class="pbh">Live runs use <b>playbook v${d.current}</b>. Last step: Reviewer proposed v${L.candidate}, <b class="${L.kept?"up":"down"}">${L.kept?"kept":"discarded"}</b>.</p>
+<div class="pbd">${L.diff.map(x=>`<div class="df ${x.op==="+"?"add":"del"}"><span class="lbl">${x.section}</span> ${x.op} ${esc(x.rule)}</div>`).join("")}</div>
+<p class="pbr">${esc(L.change.rationale)}</p>
+<dl class="pbs"><dt>Training (${L.split.training.length} cases)</dt><dd>v${L.original} ${sc(L.training.baseline,L.training.candidate)} v${L.candidate}</dd>
+<dt>Held-out (${L.split.heldout.length} cases)</dt><dd>v${L.heldout_baseline||L.original} ${sc(L.heldout.before,L.heldout.after)} v${L.current}</dd></dl>
+<p class="pbf mono">score = ${esc(L.formula)}${L.repeats>1?` · mean of ${L.repeats} runs`:""} · ${d.runs} runs saved in /runs · ${esc(L.models.worker)}</p>`;
+}
+fetch("/api/playbook").then(r=>r.ok?r.json():null).then(renderPlaybook).catch(()=>{});
 /* ======================= staff tray ======================= */
 function renderEsc(){
 const list=CASES.filter(c=>state[c.id]==="esc"||handled[c.id]);
 $("esc").innerHTML=list.length?list.map(c=>handled[c.id]
 ?`<div class="ecard ok"><b>${c.id} · ${esc(c.pt)}</b><p>${handled[c.id]}</p></div>`
-:`<div class="ecard"><b>${c.id} · ${esc(c.pt)}</b><p>${c.esc}</p><div class="act"><button data-id="${c.id}" data-a="fix">Fixed, send back to agents</button><button class="ghost" data-id="${c.id}" data-a="done">Mark handled</button><button class="ghost" data-focus="${c.id}">Focus</button></div></div>`).join("")
+:`<div class="ecard"><b>${c.id} · ${esc(c.pt)}</b><p>${c.esc}</p><div class="act">${LIVE.on?"":`<button data-id="${c.id}" data-a="fix">Fixed, send back to agents</button>`}<button class="ghost" data-id="${c.id}" data-a="done">Mark handled</button><button class="ghost" data-focus="${c.id}">Focus</button></div></div>`).join("")
 :`<p class="empty">Nothing here yet. A case lands here only when an agent can't finish it on its own.</p>`;
 }
 $("esc").addEventListener("click",e=>{
@@ -991,7 +807,7 @@ applyDock();store.set("dockW",dockW);store.set("dockH",dockH);store.set("dockOpe
 SIDE.addEventListener("change",applyDock);PHONE.addEventListener("change",applyDock);
 $("dockBtn").onclick=()=>setDock(!dockOpen);
 function setSec(sec,open){const s=document.querySelector(`.sec[data-sec="${sec}"]`);s.classList.toggle("open",open);s.querySelector(".tgl").setAttribute("aria-expanded",open);secOpen[sec]=open;store.set("sec",secOpen)}
-document.querySelectorAll(".sec").forEach(s=>{const k=s.dataset.sec;setSec(k,secOpen[k]);s.querySelector(".tgl").onclick=()=>setSec(k,!s.classList.contains("open"))});
+document.querySelectorAll(".sec").forEach(s=>{const k=s.dataset.sec;setSec(k,!!secOpen[k]);s.querySelector(".tgl").onclick=()=>setSec(k,!s.classList.contains("open"))});
 /* graph follows its container */
 let roRAF=0;
 new ResizeObserver(()=>{cancelAnimationFrame(roRAF);roRAF=requestAnimationFrame(()=>{if(follow)fit(main.classList.contains("dragging")||!motion()?0:250)})}).observe($("graph"));
@@ -1023,6 +839,3 @@ if(focusId)exitFocus();else if(!$("insp").hidden){selected=null;$("insp").hidden
 });
 buildRows();applyDock();
 hardReset();
-</script>
-</body>
-</html>

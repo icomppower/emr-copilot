@@ -1,0 +1,5 @@
+{
+  "note": "Fixed split for the Version N+1 loop: 3 training + 2 held-out cases per specialist. Expected outcomes live in lib/cases.ts (expect).",
+  "training": ["PA-1042", "PA-1043", "PA-1045", "CP-2201", "CP-2203", "CP-2204", "DN-3307", "DN-3309", "DN-3311", "RF-4410", "RF-4412", "RF-4413"],
+  "heldout": ["PA-1044", "PA-1046", "CP-2202", "CP-2205", "DN-3308", "DN-3310", "RF-4411", "RF-4414"]
+}

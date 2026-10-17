@@ -1,0 +1,31 @@
+{
+  "current": 3,
+  "history": [
+    {
+      "version": 2,
+      "from": 1,
+      "kept": true,
+      "at": "2026-10-17T06:28:19.038Z",
+      "change": {
+        "section": "worker",
+        "action": "add",
+        "rule": "When a provider lookup (NPI registry search) returns no match for a provider the goal needs, first retry the lookup with the alternate identifier the chart supplies (e.g., the NPI or the rendering provider's name) before escalating; escalate only if no alternate identifier produces a match.",
+        "rationale": "DN-3307 and DN-3309 were escalated after a single registry search for the clinic name returned nothing, while the chart likely held other identifiers; these were over-escalations that cost score. The rule targets the over-escalation pattern without touching the clinical/signature escalation rules."
+      },
+      "run": "runs/2026-10-17T06-28-19-039Z-evolution.json"
+    },
+    {
+      "version": 3,
+      "from": 2,
+      "kept": true,
+      "at": "2026-10-17T06:34:48.633Z",
+      "change": {
+        "section": "worker",
+        "action": "add",
+        "rule": "When an outbound send (fax or submission) returns a transient failure such as a busy line or timeout, retry at most once with the same arguments after a different tool-supported step, and if it still fails, escalate with the exact error rather than repeating the identical call.",
+        "rationale": "RF-4412 was stopped by the loop detector after fax_send was called three times with identical arguments on a busy line; this cost a loop and forced staff to finish a job that was otherwise routine. A bounded retry followed by escalation avoids the loop while still attempting the send."
+      },
+      "run": "runs/2026-10-17T06-34-48-633Z-evolution.json"
+    }
+  ]
+}

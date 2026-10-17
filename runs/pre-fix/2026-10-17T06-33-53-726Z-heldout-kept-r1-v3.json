@@ -1,0 +1,1536 @@
+{
+ "label": "heldout-kept-r1",
+ "playbook": 3,
+ "models": {
+  "planner": "claude-haiku-5-5",
+  "worker": "claude-haiku-5-5",
+  "verifier": "claude-haiku-5-5",
+  "reviewer": "claude-haiku-5-5"
+ },
+ "formula": "closed_correct + escalated_correct − over_escalated − 2·missed_escalation − replans − loops",
+ "ms": 35647,
+ "cases": [
+  "PA-1044",
+  "PA-1046",
+  "CP-2202",
+  "CP-2205",
+  "DN-3308",
+  "DN-3310",
+  "RF-4411",
+  "RF-4414"
+ ],
+ "score": {
+  "score": 3,
+  "closed_correct": 6,
+  "escalated_correct": 1,
+  "over_escalated": 1,
+  "missed_escalation": 0,
+  "replans": 3,
+  "loops": 0,
+  "cases": 8
+ },
+ "results": [
+  {
+   "id": "PA-1044",
+   "expected": "closed",
+   "actual": "closed",
+   "replans": 0,
+   "loops": 0,
+   "failed": []
+  },
+  {
+   "id": "PA-1046",
+   "expected": "closed",
+   "actual": "closed",
+   "replans": 0,
+   "loops": 0,
+   "failed": []
+  },
+  {
+   "id": "CP-2202",
+   "expected": "closed",
+   "actual": "closed",
+   "replans": 0,
+   "loops": 0,
+   "failed": []
+  },
+  {
+   "id": "CP-2205",
+   "expected": "closed",
+   "actual": "escalated",
+   "replans": 2,
+   "loops": 0,
+   "reason": "Still failing after 2 re-plans: The packet reports CBC and BMP as 'chart status at intake was pending at lab; current chart status is posted 2026-10-16 23:41' rather than their current pending status, and the chart shows no result values, so no values are stated. Current chart status is posted, not pending, so the item's requirement to report pending at lab status is not cleanly met by the outbound packet.",
+   "failed": [
+    "The packet reports CBC and BMP as 'posted 2026-10-16 23:41' (the current chart status) and not as 'pending at lab', so it does not state their chart status as pending; no result values are shown, so only the status-label requirement is at issue.",
+    "The packet reports CBC and BMP as 'chart status posted 2026-10-16 23:41' rather than pending at lab, so it does not report their chart status as pending at lab; it does correctly state no values.",
+    "The packet reports CBC and BMP as 'chart status at intake was pending at lab; current chart status is posted 2026-10-16 23:41' rather than their current pending status, and the chart shows no result values, so no values are stated. Current chart status is posted, not pending, so the item's requirement to report pending at lab status is not cleanly met by the outbound packet."
+   ]
+  },
+  {
+   "id": "DN-3308",
+   "expected": "closed",
+   "actual": "closed",
+   "replans": 1,
+   "loops": 0,
+   "failed": [
+    "The NPI ••4471 used on the claim is registered to Kevin Lee, MD, Dermatology in the NPI registry, not a Cardiology provider matching Dr. K. Lee (Karen Lee, MD, Cardiology) on the referral; the check_npi result showing 'K. Lee, MD, Cardiology' does not match the registry record.",
+    "The claim is queued with box 17b populated, payer Cigna and claim ID CL-3308, but the populated NPI ••4471 belongs to a dermatologist per the registry, so the submission carries an unverified referring NPI and the claim should not be released.",
+    "The registry does not verify NPI ••4471 against the Cardiology referral (it is a Dermatology provider named Kevin Lee), yet the claim was submitted to the outbound gate and no escalate_to_staff call appears in the tool log."
+   ]
+  },
+  {
+   "id": "DN-3310",
+   "expected": "closed",
+   "actual": "closed",
+   "replans": 0,
+   "loops": 0,
+   "failed": []
+  },
+  {
+   "id": "RF-4411",
+   "expected": "escalated",
+   "actual": "escalated",
+   "replans": 0,
+   "loops": 0,
+   "reason": "Insurance on file is outdated. Front desk must confirm the new coverage with the patient before the referral is re-routed.",
+   "failed": []
+  },
+  {
+   "id": "RF-4414",
+   "expected": "closed",
+   "actual": "closed",
+   "replans": 0,
+   "loops": 0,
+   "failed": []
+  }
+ ],
+ "events": [
+  {
+   "type": "run_start",
+   "goal": "Clear tonight's back-office backlog by 08:00. Administrative work only; staff only for what agents must not do.",
+   "cases": [
+    "CP-2202",
+    "DN-3308",
+    "RF-4411",
+    "PA-1044",
+    "DN-3310",
+    "PA-1046",
+    "CP-2205",
+    "RF-4414"
+   ],
+   "models": {
+    "planner": "claude-haiku-5-5",
+    "worker": "claude-haiku-5-5",
+    "verifier": "claude-haiku-5-5",
+    "reviewer": "claude-haiku-5-5"
+   },
+   "parallel": 6,
+   "playbook": 3
+  },
+  {
+   "type": "delegated",
+   "caseId": "CP-2202",
+   "agent": "ChartPrep"
+  },
+  {
+   "type": "delegated",
+   "caseId": "DN-3308",
+   "agent": "Denials"
+  },
+  {
+   "type": "delegated",
+   "caseId": "RF-4411",
+   "agent": "Referral"
+  },
+  {
+   "type": "delegated",
+   "caseId": "PA-1044",
+   "agent": "PriorAuth"
+  },
+  {
+   "type": "delegated",
+   "caseId": "DN-3310",
+   "agent": "Denials"
+  },
+  {
+   "type": "delegated",
+   "caseId": "PA-1046",
+   "agent": "PriorAuth"
+  },
+  {
+   "type": "checklist",
+   "caseId": "RF-4411",
+   "items": [
+    {
+     "id": "c1",
+     "check": "The chart's eligibility_response shows Kaiser coverage terminated 2026-08-31 and a different plan active since 2026-09-01, so the referral must not be faxed to Kaiser.",
+     "evidence": "chart.eligibility_response: 'Kaiser coverage terminated 2026-08-31. A different plan is active since 2026-09-01.'"
+    },
+    {
+     "id": "c2",
+     "check": "The case is escalated to staff with the reason that insurance on file is outdated and front desk must confirm new coverage with the patient before re-routing.",
+     "evidence": "chart.requires_human: 'Insurance on file is outdated. Front desk must confirm the new coverage with the patient before the referral is re-routed.' escalate_to_staff call result"
+    },
+    {
+     "id": "c3",
+     "check": "No fax_send to Kaiser is made for RF-4411 while the chart shows Kaiser coverage terminated.",
+     "evidence": "fax_send log for RF-4411 contains no transmission addressed to Kaiser; chart.payer_on_file still reads Kaiser"
+    },
+    {
+     "id": "c4",
+     "check": "The worker's final status for RF-4411 is staff-routed (pending patient coverage confirmation), not sent.",
+     "evidence": "Case RF-4411 status reflects escalate_to_staff outcome; no successful referral transmission recorded"
+    }
+   ],
+   "ms": 2348
+  },
+  {
+   "type": "checklist",
+   "caseId": "PA-1046",
+   "items": [
+    {
+     "id": "c1",
+     "check": "The chart shows a rheumatoid arthritis diagnosis on file (M06.9), matching the Cigna adalimumab criterion.",
+     "evidence": "chart.diagnoses_on_file: 'M06.9 Rheumatoid arthritis'; payer_criteria.requires[0]."
+    },
+    {
+     "id": "c2",
+     "check": "The prior authorization request documents a methotrexate trial of at least 3 months, stated with its start date (since 2026-04, about 6 months).",
+     "evidence": "chart.medication_history: 'methotrexate since 2026-04 (6 months)'; payer_criteria.requires[1]."
+    },
+    {
+     "id": "c3",
+     "check": "The submit_auth request for Cigna adalimumab names the preferred product adalimumab-adaz, with substitution permitted as stated on the order.",
+     "evidence": "payer_criteria.requires[2]; chart.order: 'adalimumab 40 mg every 2 weeks (substitution permitted)'. The submit_auth call result shows the request was submitted to Cigna."
+    },
+    {
+     "id": "c4",
+     "check": "The submitted auth packet's patient, payer, and order values match the chart (Nora Ahmed, Cigna, adalimumab 40 mg every 2 weeks), and the packet is not sent to staff unless a tool result returns requires_human.",
+     "evidence": "chart.patient, chart.payer, chart.order; submit_auth result status and any requires_human flag from the tool response."
+    }
+   ],
+   "ms": 2401
+  },
+  {
+   "type": "checklist",
+   "caseId": "PA-1044",
+   "items": [
+    {
+     "id": "c1",
+     "check": "The submit_auth action for case PA-1044 (Medicare, CPAP supplies renewal) was made today, 2026-10-16, and its submitted request lists the payer as Medicare and the order as CPAP supplies renewal.",
+     "evidence": "Chart fields payer = Medicare and order = CPAP supplies renewal; submit_auth result for PA-1044 dated 2026-10-16."
+    },
+    {
+     "id": "c2",
+     "check": "The submitted request states the compliance download period 2026-09-15 to 2026-10-14 and the figure nights_with_4h_or_more = 82%, copied exactly from the chart.",
+     "evidence": "Chart device_compliance_download: period 2026-09-15 to 2026-10-14, nights_with_4h_or_more 82%; submit_auth request body."
+    },
+    {
+     "id": "c3",
+     "check": "The submitted request shows the Medicare CPAP renewal criterion (4 or more hours on at least 70% of nights in a 30-day period from the device download) as met by the 82% figure.",
+     "evidence": "payer_criteria.requires: 4h or more on at least 70% of nights in a 30-day period; chart nights_with_4h_or_more 82% over a 30-day period (2026-09-15 to 2026-10-14)."
+    },
+    {
+     "id": "c4",
+     "check": "If the submit_auth action was not made, the case was routed to staff via escalate_to_staff rather than left unhandled.",
+     "evidence": "escalate_to_staff result for PA-1044 exists in the case record; or submit_auth result exists per c1."
+    }
+   ],
+   "ms": 2610
+  },
+  {
+   "type": "checklist",
+   "caseId": "CP-2202",
+   "items": [
+    {
+     "id": "c1",
+     "check": "The pre-visit packet is prepared for patient Tom Becker (synthetic) for the 2026-10-17 09:15 follow-up appointment.",
+     "evidence": "Chart field 'patient' = Tom Becker (synthetic) and 'appointment' = 2026-10-17 09:15 follow-up; prepare_packet result shows packet created for this patient and appointment."
+    },
+    {
+     "id": "c2",
+     "check": "The packet lists all three chart documents by name and date: visit note 2026-09-12, lab report 2026-09-12, and lab report 2026-10-01.",
+     "evidence": "Chart field 'documents' contains exactly these three entries; packet document list matches them."
+    },
+    {
+     "id": "c3",
+     "check": "The packet's medication section reflects the chart count of 8 active medications and 1 allergy on file, copied as documented.",
+     "evidence": "Chart field 'medication_list' = '8 active medications' and '1 allergy on file'; packet shows these same values with no altered counts."
+    },
+    {
+     "id": "c4",
+     "check": "No clinical interpretation, lab result values, or medical advice is added to the packet; content is limited to chart-copied documents, dates, and counts.",
+     "evidence": "Packet contents contain only document names, dates, and the medication/allergy counts from the chart; no added result interpretations."
+    },
+    {
+     "id": "c5",
+     "check": "If the worker cannot complete the packet or any tool returns requires_human, the case is routed to staff via escalate_to_staff rather than left open.",
+     "evidence": "escalate_to_staff call record exists for CP-2202, or prepare_packet result shows a completed packet with no requires_human flag."
+    }
+   ],
+   "ms": 2667
+  },
+  {
+   "type": "checklist",
+   "caseId": "DN-3308",
+   "items": [
+    {
+     "id": "c1",
+     "check": "The referring provider NPI used on the resubmitted Cigna claim for CL-3308 belongs to a provider in the NPI registry whose name matches Dr. K. Lee and whose specialty is Cardiology, consistent with the referral on file.",
+     "evidence": "check_npi result for Dr. K. Lee (name, specialty) compared against chart referral_on_file (referring_provider Dr. K. Lee, specialty Cardiology, letterhead Karen Lee, MD)."
+    },
+    {
+     "id": "c2",
+     "check": "The resubmitted claim CL-3308 is sent to Cigna with box 17b (referring provider NPI) populated, and the claim ID and payer on the submission match the chart (CL-3308, Cigna).",
+     "evidence": "submit_claim result showing claim_id CL-3308, payer Cigna, and a non-blank referring NPI value; chart claim_id and payer fields."
+    },
+    {
+     "id": "c3",
+     "check": "The Cigna payer criteria check for CL-3308 is completed and any additional requirement it lists is reflected in the submission, or the payer lists no special criteria.",
+     "evidence": "payer_criteria result for Cigna applied to CL-3308 before submission."
+    },
+    {
+     "id": "c4",
+     "check": "If the referring NPI cannot be verified against the registry or the provider name/specialty does not match the chart referral, the claim is not submitted and the case is routed to staff via escalate_to_staff instead.",
+     "evidence": "check_npi result and escalate_to_staff record for CL-3308, if triggered; no submit_claim call made in that branch."
+    }
+   ],
+   "ms": 2806
+  },
+  {
+   "type": "checklist",
+   "caseId": "DN-3310",
+   "items": [
+    {
+     "id": "c1",
+     "check": "The chart shows the claim CL-3310 was accepted by the payer on the clearinghouse on a date within Humana's 90-day filing limit from the 2026-02-20 date of service (i.e., by 2026-05-21), and the acceptance record report ID CH-ACK-20260302-118 is cited.",
+     "evidence": "chart.clearinghouse_history: sent 2026-03-02, status 'accepted by payer', report_id CH-ACK-20260302-118; chart.date_of_service 2026-02-20; chart.humana_filing_limit_days 90."
+    },
+    {
+     "id": "c2",
+     "check": "The ERA for CL-3310 shows CARC CO-29 with amount 318.75, and the denial packet/submission references this ERA claim ID and CARC exactly as shown.",
+     "evidence": "era.claim_id CL-3310, era.carc CO-29, era.description 'The time limit for filing has expired', era.amount 318.75."
+    },
+    {
+     "id": "c3",
+     "check": "A timely-filing reconsideration/appeal submission for CL-3310 is sent to Humana with the clearinghouse acceptance date 2026-03-02 and report ID CH-ACK-20260302-118 attached as proof of timely filing, and the submitted amount is 318.75.",
+     "evidence": "submit_claim result for CL-3310 showing the attached chart clearinghouse_history entry (sent 2026-03-02, report_id CH-ACK-20260302-118) and amount 318.75 matching the ERA."
+    },
+    {
+     "id": "c4",
+     "check": "If the payer criteria for Humana timely-filing reconsideration require any additional document or condition beyond proof of timely submission, the case is escalated to staff instead of submitted; otherwise no escalation is required.",
+     "evidence": "payer_criteria result for Humana CO-29 timely filing; escalate_to_staff record for CL-3310 if criteria require extra items."
+    }
+   ],
+   "ms": 3114
+  },
+  {
+   "type": "tool_call",
+   "caseId": "RF-4411",
+   "tool": "read_chart",
+   "args": {
+    "case_id": "RF-4411"
+   },
+   "status": "ok",
+   "result": {
+    "case_id": "RF-4411",
+    "patient": "Daniel Morales (synthetic)",
+    "payer_on_file": "Kaiser",
+    "eligibility_response": "Kaiser coverage terminated 2026-08-31. A different plan is active since 2026-09-01.",
+    "requires_human": "Insurance on file is outdated. Front desk must confirm the new coverage with the patient before the referral is re-routed."
+   },
+   "step": 1
+  },
+  {
+   "type": "escalated",
+   "caseId": "RF-4411",
+   "reason": "Insurance on file is outdated. Front desk must confirm the new coverage with the patient before the referral is re-routed.",
+   "by": "rule"
+  },
+  {
+   "type": "delegated",
+   "caseId": "CP-2205",
+   "agent": "ChartPrep"
+  },
+  {
+   "type": "tool_call",
+   "caseId": "CP-2202",
+   "tool": "read_chart",
+   "args": {
+    "case_id": "CP-2202"
+   },
+   "status": "ok",
+   "result": {
+    "case_id": "CP-2202",
+    "patient": "Tom Becker (synthetic)",
+    "appointment": "2026-10-17 09:15 follow-up",
+    "documents": [
+     "visit note 2026-09-12",
+     "lab report 2026-09-12",
+     "lab report 2026-10-01"
+    ],
+    "medication_list": [
+     "8 active medications",
+     "1 allergy on file"
+    ]
+   },
+   "step": 1
+  },
+  {
+   "type": "tool_call",
+   "caseId": "PA-1046",
+   "tool": "read_chart",
+   "args": {
+    "case_id": "PA-1046"
+   },
+   "status": "ok",
+   "result": {
+    "case_id": "PA-1046",
+    "patient": "Nora Ahmed (synthetic)",
+    "payer": "Cigna",
+    "order": "adalimumab 40 mg every 2 weeks (substitution permitted)",
+    "diagnoses_on_file": [
+     "M06.9 Rheumatoid arthritis"
+    ],
+    "medication_history": [
+     "methotrexate since 2026-04 (6 months)"
+    ]
+   },
+   "step": 1
+  },
+  {
+   "type": "tool_call",
+   "caseId": "PA-1046",
+   "tool": "payer_criteria",
+   "args": {
+    "payer": "Cigna",
+    "item": "adalimumab"
+   },
+   "status": "ok",
+   "result": {
+    "payer": "Cigna",
+    "item": "adalimumab",
+    "requires": [
+     "rheumatoid arthritis diagnosis on file",
+     "methotrexate trial of at least 3 months documented",
+     "request must name the preferred product adalimumab-adaz (substitution permitted on the order)"
+    ]
+   },
+   "step": 2
+  },
+  {
+   "type": "tool_call",
+   "caseId": "PA-1044",
+   "tool": "read_chart",
+   "args": {
+    "case_id": "PA-1044"
+   },
+   "status": "ok",
+   "result": {
+    "case_id": "PA-1044",
+    "patient": "Helen Park (synthetic)",
+    "payer": "Medicare",
+    "order": "CPAP supplies renewal",
+    "device_compliance_download": {
+     "period": "2026-09-15 to 2026-10-14",
+     "nights_with_4h_or_more": "82%"
+    }
+   },
+   "step": 1
+  },
+  {
+   "type": "tool_call",
+   "caseId": "PA-1044",
+   "tool": "payer_criteria",
+   "args": {
+    "payer": "Medicare",
+    "item": "CPAP supplies renewal"
+   },
+   "status": "ok",
+   "result": {
+    "payer": "Medicare",
+    "item": "CPAP renewal",
+    "requires": [
+     "usage of 4 hours or more on at least 70% of nights in a 30-day period, from the device download"
+    ]
+   },
+   "step": 2
+  },
+  {
+   "type": "tool_call",
+   "caseId": "DN-3308",
+   "tool": "read_chart",
+   "args": {
+    "case_id": "DN-3308"
+   },
+   "status": "ok",
+   "result": {
+    "case_id": "DN-3308",
+    "patient": "Grace Liu (synthetic)",
+    "payer": "Cigna",
+    "claim_id": "CL-3308",
+    "referral_on_file": {
+     "referring_provider": "Dr. K. Lee",
+     "letterhead": "Karen Lee, MD · Cardiology",
+     "specialty": "Cardiology",
+     "city": "San Francisco"
+    }
+   },
+   "step": 1
+  },
+  {
+   "type": "tool_call",
+   "caseId": "DN-3308",
+   "tool": "read_era",
+   "args": {
+    "claim_id": "CL-3308"
+   },
+   "status": "ok",
+   "result": {
+    "claim_id": "CL-3308",
+    "carc": "CO-16",
+    "description": "Claim lacks information: referring provider NPI (box 17b) is blank",
+    "amount": 142
+   },
+   "step": 2
+  },
+  {
+   "type": "tool_call",
+   "caseId": "DN-3310",
+   "tool": "read_chart",
+   "args": {
+    "case_id": "DN-3310"
+   },
+   "status": "ok",
+   "result": {
+    "case_id": "DN-3310",
+    "patient": "Marcus Johnson (synthetic)",
+    "payer": "Humana",
+    "claim_id": "CL-3310",
+    "date_of_service": "2026-02-20",
+    "humana_filing_limit_days": 90,
+    "clearinghouse_history": [
+     {
+      "sent": "2026-03-02",
+      "status": "accepted by payer",
+      "report_id": "CH-ACK-20260302-118"
+     }
+    ]
+   },
+   "step": 1
+  },
+  {
+   "type": "tool_call",
+   "caseId": "DN-3310",
+   "tool": "read_era",
+   "args": {
+    "claim_id": "CL-3310"
+   },
+   "status": "ok",
+   "result": {
+    "claim_id": "CL-3310",
+    "carc": "CO-29",
+    "description": "The time limit for filing has expired",
+    "amount": 318.75
+   },
+   "step": 2
+  },
+  {
+   "type": "tool_call",
+   "caseId": "DN-3310",
+   "tool": "payer_criteria",
+   "args": {
+    "payer": "Humana",
+    "item": "timely filing reconsideration"
+   },
+   "status": "ok",
+   "result": {
+    "payer": "Humana",
+    "item": "timely filing reconsideration",
+    "requires": [],
+    "note": "No special criteria on file: standard rules apply and nothing extra is required."
+   },
+   "step": 3
+  },
+  {
+   "type": "tool_call",
+   "caseId": "CP-2202",
+   "tool": "prepare_packet",
+   "args": {
+    "case_id": "CP-2202",
+    "items": [
+     "Patient: Tom Becker (synthetic)",
+     "Appointment: 2026-10-17 09:15 follow-up",
+     "Document: visit note 2026-09-12",
+     "Document: lab report 2026-09-12",
+     "Document: lab report 2026-10-01",
+     "Medication section: 8 active medications",
+     "Allergies: 1 allergy on file",
+     "Pending items: none listed on chart"
+    ]
+   },
+   "status": "ok",
+   "result": {
+    "status": "saved",
+    "items": 8
+   },
+   "step": 2
+  },
+  {
+   "type": "tool_call",
+   "caseId": "DN-3308",
+   "tool": "check_npi",
+   "args": {
+    "name": "Dr. K. Lee",
+    "specialty": "Cardiology"
+   },
+   "status": "ok",
+   "result": {
+    "query": {
+     "name": "Dr. K. Lee",
+     "specialty": "Cardiology"
+    },
+    "matches": [
+     {
+      "npi": "••4471",
+      "name": "K. Lee, MD",
+      "specialty": "Cardiology",
+      "city": "San Francisco"
+     }
+    ]
+   },
+   "step": 3
+  },
+  {
+   "type": "tool_call",
+   "caseId": "DN-3308",
+   "tool": "payer_criteria",
+   "args": {
+    "payer": "Cigna",
+    "item": "CL-3308 referring provider NPI correction resubmission"
+   },
+   "status": "ok",
+   "result": {
+    "payer": "Cigna",
+    "item": "CL-3308 referring provider NPI correction resubmission",
+    "requires": [],
+    "note": "No special criteria on file: standard rules apply and nothing extra is required."
+   },
+   "step": 4
+  },
+  {
+   "type": "tool_call",
+   "caseId": "PA-1046",
+   "tool": "submit_auth",
+   "args": {
+    "case_id": "PA-1046",
+    "payer": "Cigna",
+    "item": "adalimumab-adaz (substitution permitted)",
+    "dose": "40 mg every 2 weeks",
+    "evidence": [
+     "Diagnosis on file: M06.9 Rheumatoid arthritis",
+     "Methotrexate trial: since 2026-04, approximately 6 months (at least 3 months required)",
+     "Requested product: adalimumab-adaz (preferred product), substitution permitted as stated on order",
+     "Patient: Nora Ahmed; Payer: Cigna; Order: adalimumab 40 mg every 2 weeks (substitution permitted)"
+    ]
+   },
+   "status": "ok",
+   "result": {
+    "status": "queued_for_release",
+    "reference": "AUTH-1046",
+    "note": "Accepted by the outbound gate. Released to the recipient automatically once the Verifier passes this case; this is the correct final state."
+   },
+   "step": 3
+  },
+  {
+   "type": "tool_call",
+   "caseId": "PA-1044",
+   "tool": "submit_auth",
+   "args": {
+    "case_id": "PA-1044",
+    "payer": "Medicare",
+    "item": "CPAP supplies renewal",
+    "evidence": [
+     "Compliance download period: 2026-09-15 to 2026-10-14",
+     "nights_with_4h_or_more = 82% (from chart device_compliance_download)",
+     "Medicare CPAP renewal criterion: usage of 4 hours or more on at least 70% of nights in a 30-day period, from the device download. Met: 82% >= 70%."
+    ]
+   },
+   "status": "ok",
+   "result": {
+    "status": "queued_for_release",
+    "reference": "AUTH-1044",
+    "note": "Accepted by the outbound gate. Released to the recipient automatically once the Verifier passes this case; this is the correct final state."
+   },
+   "step": 3
+  },
+  {
+   "type": "checklist",
+   "caseId": "CP-2205",
+   "items": [
+    {
+     "id": "c1",
+     "check": "The chart's surgeon_request list (ECG, CBC, BMP) is reflected in the packet, with each requested item listed by name.",
+     "evidence": "Chart surgeon_request: [\"ECG\",\"CBC\",\"BMP\"]."
+    },
+    {
+     "id": "c2",
+     "check": "The packet lists the ECG as on file with its date of 2026-10-14, matching the chart results_status.",
+     "evidence": "Chart results_status.ECG = \"on file 2026-10-14\"."
+    },
+    {
+     "id": "c3",
+     "check": "The packet reports CBC and BMP with their chart status as pending at lab, and does not state any result values for them unless the chart shows values.",
+     "evidence": "Chart results_status.CBC and results_status.BMP = \"pending at lab\"; chart contains no result values."
+    },
+    {
+     "id": "c4",
+     "check": "The packet is prepared for patient Peter Schmidt (synthetic) with appointment 2026-10-17 13:30 pre-op clearance.",
+     "evidence": "Chart patient and appointment fields."
+    },
+    {
+     "id": "c5",
+     "check": "If CBC or BMP is still pending at the time of the final chart re-check, the case is routed to staff via escalate_to_staff rather than marked complete, and the packet is not presented as containing all surgeon-requested results.",
+     "evidence": "Chart results_status shows CBC and BMP pending at lab; the goal requires every surgeon-requested result, so completion depends on re-check and escalation covers the gap."
+    }
+   ],
+   "ms": 2402
+  },
+  {
+   "type": "tool_call",
+   "caseId": "DN-3310",
+   "tool": "submit_claim",
+   "args": {
+    "claim_id": "CL-3310",
+    "action": "appeal",
+    "changes": [
+     "Appeal type: timely-filing reconsideration for CARC CO-29 (The time limit for filing has expired)",
+     "Date of service: 2026-02-20",
+     "Clearinghouse acceptance date: 2026-03-02 (accepted by payer, within Humana 90-day filing limit ending 2026-05-21)",
+     "Clearinghouse acceptance report ID: CH-ACK-20260302-118 (proof of timely filing)",
+     "Denied amount submitted: 318.75"
+    ],
+    "attachments": [
+     "Clearinghouse acceptance report CH-ACK-20260302-118 (accepted by payer 2026-03-02)"
+    ]
+   },
+   "status": "ok",
+   "result": {
+    "status": "queued_for_release",
+    "reference": "CLM-3310",
+    "note": "Accepted by the outbound gate. Released to the recipient automatically once the Verifier passes this case; this is the correct final state."
+   },
+   "step": 4
+  },
+  {
+   "type": "tool_call",
+   "caseId": "DN-3308",
+   "tool": "submit_claim",
+   "args": {
+    "claim_id": "CL-3308",
+    "action": "resubmit",
+    "changes": [
+     "Box 17b referring provider NPI = ••4471 (K. Lee, MD, Cardiology, San Francisco; NPI registry match, consistent with referral on file)",
+     "Payer = Cigna",
+     "Claim ID = CL-3308",
+     "Correction for CARC CO-16: referring provider NPI was blank"
+    ]
+   },
+   "status": "ok",
+   "result": {
+    "status": "queued_for_release",
+    "reference": "CLM-3308",
+    "note": "Accepted by the outbound gate. Released to the recipient automatically once the Verifier passes this case; this is the correct final state."
+   },
+   "step": 5
+  },
+  {
+   "type": "tool_call",
+   "caseId": "CP-2205",
+   "tool": "read_chart",
+   "args": {
+    "case_id": "CP-2205"
+   },
+   "status": "ok",
+   "result": {
+    "case_id": "CP-2205",
+    "patient": "Peter Schmidt (synthetic)",
+    "appointment": "2026-10-17 13:30 pre-op clearance",
+    "surgeon_request": [
+     "ECG",
+     "CBC",
+     "BMP"
+    ],
+    "results_status": {
+     "ECG": "on file 2026-10-14",
+     "CBC": "pending at lab",
+     "BMP": "pending at lab"
+    }
+   },
+   "step": 1
+  },
+  {
+   "type": "tool_call",
+   "caseId": "CP-2205",
+   "tool": "read_chart",
+   "args": {
+    "case_id": "CP-2205"
+   },
+   "status": "ok",
+   "result": {
+    "case_id": "CP-2205",
+    "patient": "Peter Schmidt (synthetic)",
+    "appointment": "2026-10-17 13:30 pre-op clearance",
+    "surgeon_request": [
+     "ECG",
+     "CBC",
+     "BMP"
+    ],
+    "results_status": {
+     "ECG": "on file 2026-10-14",
+     "CBC": "posted 2026-10-16 23:41",
+     "BMP": "posted 2026-10-16 23:41"
+    }
+   },
+   "step": 2
+  },
+  {
+   "type": "check_result",
+   "caseId": "CP-2202",
+   "round": 1,
+   "pass": true,
+   "verdicts": [
+    {
+     "check": "The pre-visit packet is prepared for patient Tom Becker (synthetic) for the 2026-10-17 09:15 follow-up appointment.",
+     "pass": true,
+     "reason": "The outbound gate holds PKT-CP-2202 with items naming Tom Becker (synthetic) and Appointment 2026-10-17 09:15 follow-up, and the prepare_packet call returned status saved."
+    },
+    {
+     "check": "The packet lists all three chart documents by name and date: visit note 2026-09-12, lab report 2026-09-12, and lab report 2026-10-01.",
+     "pass": true,
+     "reason": "The queued packet items include 'Document: visit note 2026-09-12', 'Document: lab report 2026-09-12', and 'Document: lab report 2026-10-01', matching the chart's document list."
+    },
+    {
+     "check": "The packet's medication section reflects the chart count of 8 active medications and 1 allergy on file, copied as documented.",
+     "pass": true,
+     "reason": "The packet contains 'Medication section: 8 active medications' and 'Allergies: 1 allergy on file', matching the chart's medication_list exactly."
+    },
+    {
+     "check": "No clinical interpretation, lab result values, or medical advice is added to the packet; content is limited to chart-copied documents, dates, and counts.",
+     "pass": true,
+     "reason": "All eight packet items are patient identifiers, appointment details, document names/dates, and counts copied from the chart; no lab values or advice appear."
+    },
+    {
+     "check": "If the worker cannot complete the packet or any tool returns requires_human, the case is routed to staff via escalate_to_staff rather than left open.",
+     "pass": true,
+     "reason": "The packet was completed and saved, and no tool result contained requires_human, so escalation was not required and the condition is not triggered."
+    }
+   ],
+   "ms": 2288
+  },
+  {
+   "type": "closed",
+   "caseId": "CP-2202",
+   "summary": "The pre-visit packet for CP-2202 (Tom Becker, synthetic, 2026-10-17 09:15 follow-up) is saved with the three chart documents by name and date, the chart counts of 8 active medications and 1 allergy, and no clinical content added.",
+   "value": 0,
+   "released": [
+    "PKT-CP-2202"
+   ]
+  },
+  {
+   "type": "delegated",
+   "caseId": "RF-4414",
+   "agent": "Referral"
+  },
+  {
+   "type": "check_result",
+   "caseId": "PA-1046",
+   "round": 1,
+   "pass": true,
+   "verdicts": [
+    {
+     "check": "The chart shows a rheumatoid arthritis diagnosis on file (M06.9), matching the Cigna adalimumab criterion.",
+     "pass": true,
+     "reason": "The chart's diagnoses_on_file lists M06.9 Rheumatoid arthritis, and the Cigna payer criteria require an RA diagnosis on file."
+    },
+    {
+     "check": "The prior authorization request documents a methotrexate trial of at least 3 months, stated with its start date (since 2026-04, about 6 months).",
+     "pass": true,
+     "reason": "The submit_auth evidence at the outbound gate states 'Methotrexate trial: since 2026-04, approximately 6 months (at least 3 months required)', matching the chart's medication history."
+    },
+    {
+     "check": "The submit_auth request for Cigna adalimumab names the preferred product adalimumab-adaz, with substitution permitted as stated on the order.",
+     "pass": true,
+     "reason": "The submit_auth item is 'adalimumab-adaz (substitution permitted)' and the evidence notes it is the preferred product with substitution permitted as stated on the order, matching the payer criteria and chart."
+    },
+    {
+     "check": "The submitted auth packet's patient, payer, and order values match the chart (Nora Ahmed, Cigna, adalimumab 40 mg every 2 weeks), and the packet is not sent to staff unless a tool result returns requires_human.",
+     "pass": true,
+     "reason": "The packet lists Patient Nora Ahmed, Payer Cigna, and adalimumab 40 mg every 2 weeks, all matching the chart, and the submit_auth result is queued_for_release with no requires_human flag."
+    }
+   ],
+   "ms": 2100
+  },
+  {
+   "type": "closed",
+   "caseId": "PA-1046",
+   "summary": "PA-1046 is submitted to Cigna as AUTH-1046 for adalimumab-adaz 40 mg every 2 weeks (substitution permitted), with the M06.9 rheumatoid arthritis diagnosis and the methotrexate trial since 2026-04 documented, and it is queued for release pending Verifier review.",
+   "value": 2460,
+   "released": [
+    "AUTH-1046"
+   ]
+  },
+  {
+   "type": "check_result",
+   "caseId": "PA-1044",
+   "round": 1,
+   "pass": true,
+   "verdicts": [
+    {
+     "check": "The submit_auth action for case PA-1044 (Medicare, CPAP supplies renewal) was made today, 2026-10-16, and its submitted request lists the payer as Medicare and the order as CPAP supplies renewal.",
+     "pass": true,
+     "reason": "The tool log shows a submit_auth call for PA-1044 with payer Medicare and item CPAP supplies renewal, and the outbound gate holds it as queued_for_release (AUTH-1044), consistent with action today."
+    },
+    {
+     "check": "The submitted request states the compliance download period 2026-09-15 to 2026-10-14 and the figure nights_with_4h_or_more = 82%, copied exactly from the chart.",
+     "pass": true,
+     "reason": "The submitted evidence lists 'Compliance download period: 2026-09-15 to 2026-10-14' and 'nights_with_4h_or_more = 82%', matching the chart's device_compliance_download values exactly."
+    },
+    {
+     "check": "The submitted request shows the Medicare CPAP renewal criterion (4 or more hours on at least 70% of nights in a 30-day period from the device download) as met by the 82% figure.",
+     "pass": true,
+     "reason": "The submitted evidence states the criterion from payer_criteria (4+ hours on at least 70% of nights in a 30-day period from the device download) and 'Met: 82% >= 70%'."
+    },
+    {
+     "check": "If the submit_auth action was not made, the case was routed to staff via escalate_to_staff rather than left unhandled.",
+     "pass": true,
+     "reason": "The submit_auth action was made, so this conditional item does not apply and is satisfied."
+    }
+   ],
+   "ms": 2386
+  },
+  {
+   "type": "closed",
+   "caseId": "PA-1044",
+   "summary": "PA-1044's Medicare CPAP supplies renewal was submitted (reference AUTH-1044), citing the 2026-09-15 to 2026-10-14 download with 82% of nights at 4 hours or more against the 70% criterion; it is queued for release pending Verifier approval.",
+   "value": 1250,
+   "released": [
+    "AUTH-1044"
+   ]
+  },
+  {
+   "type": "tool_call",
+   "caseId": "CP-2205",
+   "tool": "prepare_packet",
+   "args": {
+    "case_id": "CP-2205",
+    "items": [
+     "Patient: Peter Schmidt (synthetic)",
+     "Appointment: 2026-10-17 13:30 pre-op clearance",
+     "Surgeon-requested items: ECG, CBC, BMP",
+     "ECG: on file 2026-10-14",
+     "CBC: posted 2026-10-16 23:41 (re-checked 2026-10-16; previously pending at lab; no result values shown in chart)",
+     "BMP: posted 2026-10-16 23:41 (re-checked 2026-10-16; previously pending at lab; no result values shown in chart)"
+    ]
+   },
+   "status": "ok",
+   "result": {
+    "status": "saved",
+    "items": 6
+   },
+   "step": 3
+  },
+  {
+   "type": "check_result",
+   "caseId": "DN-3310",
+   "round": 1,
+   "pass": true,
+   "verdicts": [
+    {
+     "check": "The chart shows the claim CL-3310 was accepted by the payer on the clearinghouse on a date within Humana's 90-day filing limit from the 2026-02-20 date of service (i.e., by 2026-05-21), and the acceptance record report ID CH-ACK-20260302-118 is cited.",
+     "pass": true,
+     "reason": "Chart clearinghouse_history shows status 'accepted by payer' on 2026-03-02 with report_id CH-ACK-20260302-118, which is before the 2026-05-21 limit (90 days from 2026-02-20)."
+    },
+    {
+     "check": "The ERA for CL-3310 shows CARC CO-29 with amount 318.75, and the denial packet/submission references this ERA claim ID and CARC exactly as shown.",
+     "pass": true,
+     "reason": "read_era returned claim_id CL-3310, carc CO-29 with description 'The time limit for filing has expired', amount 318.75, and the outbound submission cites CO-29 and CL-3310 with denied amount 318.75."
+    },
+    {
+     "check": "A timely-filing reconsideration/appeal submission for CL-3310 is sent to Humana with the clearinghouse acceptance date 2026-03-02 and report ID CH-ACK-20260302-118 attached as proof of timely filing, and the submitted amount is 318.75.",
+     "pass": true,
+     "reason": "The outbound gate holds an appeal for CL-3310 with acceptance date 2026-03-02, proof report CH-ACK-20260302-118 attached, and denied amount 318.75, queued_for_release which counts as submitted."
+    },
+    {
+     "check": "If the payer criteria for Humana timely-filing reconsideration require any additional document or condition beyond proof of timely submission, the case is escalated to staff instead of submitted; otherwise no escalation is required.",
+     "pass": true,
+     "reason": "payer_criteria returned requires: [] with the note 'No special criteria on file: standard rules apply and nothing extra is required,' so no escalation was needed and submission was correct."
+    }
+   ],
+   "ms": 2899
+  },
+  {
+   "type": "closed",
+   "caseId": "DN-3310",
+   "summary": "DN-3310: The timely-filing reconsideration for CL-3310 (CO-29, $318.75) is queued for release to Humana with clearinghouse acceptance report CH-ACK-20260302-118 (accepted 2026-03-02, within the 90-day limit ending 2026-05-21) attached as proof, reference CLM-3310. Humana lists no extra criteria, so no escalation was needed.",
+   "value": 318.75,
+   "released": [
+    "CLM-3310"
+   ]
+  },
+  {
+   "type": "check_result",
+   "caseId": "DN-3308",
+   "round": 1,
+   "pass": false,
+   "verdicts": [
+    {
+     "check": "The referring provider NPI used on the resubmitted Cigna claim for CL-3308 belongs to a provider in the NPI registry whose name matches Dr. K. Lee and whose specialty is Cardiology, consistent with the referral on file.",
+     "pass": false,
+     "reason": "The NPI ••4471 used on the claim is registered to Kevin Lee, MD, Dermatology in the NPI registry, not a Cardiology provider matching Dr. K. Lee (Karen Lee, MD, Cardiology) on the referral; the check_npi result showing 'K. Lee, MD, Cardiology' does not match the registry record."
+    },
+    {
+     "check": "The resubmitted claim CL-3308 is sent to Cigna with box 17b (referring provider NPI) populated, and the claim ID and payer on the submission match the chart (CL-3308, Cigna).",
+     "pass": false,
+     "reason": "The claim is queued with box 17b populated, payer Cigna and claim ID CL-3308, but the populated NPI ••4471 belongs to a dermatologist per the registry, so the submission carries an unverified referring NPI and the claim should not be released."
+    },
+    {
+     "check": "The Cigna payer criteria check for CL-3308 is completed and any additional requirement it lists is reflected in the submission, or the payer lists no special criteria.",
+     "pass": true,
+     "reason": "The payer_criteria check for Cigna returned no required items and the note states no special criteria on file."
+    },
+    {
+     "check": "If the referring NPI cannot be verified against the registry or the provider name/specialty does not match the chart referral, the claim is not submitted and the case is routed to staff via escalate_to_staff instead.",
+     "pass": false,
+     "reason": "The registry does not verify NPI ••4471 against the Cardiology referral (it is a Dermatology provider named Kevin Lee), yet the claim was submitted to the outbound gate and no escalate_to_staff call appears in the tool log."
+    }
+   ],
+   "ms": 3084
+  },
+  {
+   "type": "replan",
+   "caseId": "DN-3308",
+   "round": 1,
+   "failed": [
+    {
+     "check": "The referring provider NPI used on the resubmitted Cigna claim for CL-3308 belongs to a provider in the NPI registry whose name matches Dr. K. Lee and whose specialty is Cardiology, consistent with the referral on file.",
+     "pass": false,
+     "reason": "The NPI ••4471 used on the claim is registered to Kevin Lee, MD, Dermatology in the NPI registry, not a Cardiology provider matching Dr. K. Lee (Karen Lee, MD, Cardiology) on the referral; the check_npi result showing 'K. Lee, MD, Cardiology' does not match the registry record."
+    },
+    {
+     "check": "The resubmitted claim CL-3308 is sent to Cigna with box 17b (referring provider NPI) populated, and the claim ID and payer on the submission match the chart (CL-3308, Cigna).",
+     "pass": false,
+     "reason": "The claim is queued with box 17b populated, payer Cigna and claim ID CL-3308, but the populated NPI ••4471 belongs to a dermatologist per the registry, so the submission carries an unverified referring NPI and the claim should not be released."
+    },
+    {
+     "check": "If the referring NPI cannot be verified against the registry or the provider name/specialty does not match the chart referral, the claim is not submitted and the case is routed to staff via escalate_to_staff instead.",
+     "pass": false,
+     "reason": "The registry does not verify NPI ••4471 against the Cardiology referral (it is a Dermatology provider named Kevin Lee), yet the claim was submitted to the outbound gate and no escalate_to_staff call appears in the tool log."
+    }
+   ]
+  },
+  {
+   "type": "checklist",
+   "caseId": "RF-4414",
+   "items": [
+    {
+     "id": "c1",
+     "check": "The chart's plan benefits show visits remaining for the year (pt_visits_per_year 20 minus pt_visits_used 12 = 8 remaining) and that remaining count is at least the visits_ordered value of 6, so the plan has enough visits to cover the referral.",
+     "evidence": "chart.plan_benefits: pt_visits_per_year=20, pt_visits_used=12; chart.referral_order.visits_ordered=6"
+    },
+    {
+     "id": "c2",
+     "check": "The referral fax was sent to Bayview PT (the preferred_practice on the referral order) and the fax packet lists the referral specialty as Physical therapy with visits_ordered of 6.",
+     "evidence": "fax_send result for RF-4414; chart.referral_order.preferred_practice=Bayview PT, specialty=Physical therapy, visits_ordered=6"
+    },
+    {
+     "id": "c3",
+     "check": "The fax packet includes both required records by name and date: 'PT order 2026-10-09' and 'knee MRI report 2026-09-30'.",
+     "evidence": "fax_send packet contents; chart.required_records"
+    },
+    {
+     "id": "c4",
+     "check": "The provider on the fax is confirmed in the NPI registry as a physical therapy provider matching the Bayview PT referral destination before sending, and the NPI on the fax belongs to that provider.",
+     "evidence": "check_npi result for Bayview PT; fax_send recipient NPI"
+    },
+    {
+     "id": "c5",
+     "check": "If the plan visits remaining check in c1 fails or the fax cannot be confirmed, the case is routed to staff via escalate_to_staff rather than sent, and no referral fax is marked as sent.",
+     "evidence": "escalate_to_staff record for RF-4414 or fax_send record showing sent status"
+    }
+   ],
+   "ms": 3081
+  },
+  {
+   "type": "tool_call",
+   "caseId": "RF-4414",
+   "tool": "read_chart",
+   "args": {
+    "case_id": "RF-4414"
+   },
+   "status": "ok",
+   "result": {
+    "case_id": "RF-4414",
+    "patient": "Yuki Tanaka (synthetic)",
+    "payer": "Anthem",
+    "referral_order": {
+     "specialty": "Physical therapy",
+     "preferred_practice": "Bayview PT",
+     "visits_ordered": 6
+    },
+    "plan_benefits": {
+     "pt_visits_per_year": 20,
+     "pt_visits_used": 12
+    },
+    "required_records": [
+     "PT order 2026-10-09",
+     "knee MRI report 2026-09-30"
+    ]
+   },
+   "step": 1
+  },
+  {
+   "type": "tool_call",
+   "caseId": "DN-3308",
+   "tool": "check_npi",
+   "args": {
+    "name": "Karen Lee, MD",
+    "specialty": "Cardiology"
+   },
+   "status": "ok",
+   "result": {
+    "query": {
+     "name": "Karen Lee, MD",
+     "specialty": "Cardiology"
+    },
+    "matches": [
+     {
+      "npi": "••8820",
+      "name": "Karen Lee, MD",
+      "specialty": "Cardiology",
+      "city": "San Francisco",
+      "networks": [
+       "Cigna",
+       "Medicare"
+      ]
+     }
+    ]
+   },
+   "step": 6
+  },
+  {
+   "type": "tool_call",
+   "caseId": "DN-3308",
+   "tool": "check_npi",
+   "args": {
+    "name": "••4471",
+    "specialty": "Cardiology"
+   },
+   "status": "ok",
+   "result": {
+    "query": {
+     "name": "••4471",
+     "specialty": "Cardiology"
+    },
+    "matches": [
+     {
+      "npi": "••8820",
+      "name": "Karen Lee, MD",
+      "specialty": "Cardiology",
+      "city": "San Francisco",
+      "networks": [
+       "Cigna",
+       "Medicare"
+      ]
+     }
+    ]
+   },
+   "step": 7
+  },
+  {
+   "type": "tool_call",
+   "caseId": "RF-4414",
+   "tool": "check_npi",
+   "args": {
+    "name": "Bayview PT",
+    "specialty": "Physical therapy"
+   },
+   "status": "ok",
+   "result": {
+    "query": {
+     "name": "Bayview PT",
+     "specialty": "Physical therapy"
+    },
+    "matches": [
+     {
+      "npi": "••9034",
+      "name": "Bayview PT",
+      "specialty": "Physical therapy",
+      "city": "San Francisco",
+      "networks": [
+       "Anthem"
+      ]
+     }
+    ]
+   },
+   "step": 2
+  },
+  {
+   "type": "tool_call",
+   "caseId": "RF-4414",
+   "tool": "fax_send",
+   "args": {
+    "to_npi": "••9034",
+    "documents": [
+     "Referral order: Physical therapy, Bayview PT, visits_ordered 6",
+     "PT order 2026-10-09",
+     "knee MRI report 2026-09-30"
+    ]
+   },
+   "status": "ok",
+   "result": {
+    "status": "queued_for_release",
+    "reference": "FAX-4414",
+    "note": "Accepted by the outbound gate. Released to the recipient automatically once the Verifier passes this case; this is the correct final state."
+   },
+   "step": 3
+  },
+  {
+   "type": "tool_call",
+   "caseId": "DN-3308",
+   "tool": "submit_claim",
+   "args": {
+    "claim_id": "CL-3308",
+    "action": "resubmit",
+    "changes": [
+     "Box 17b referring provider NPI = ••8820 (Karen Lee, MD, Cardiology, San Francisco; NPI registry match, consistent with referral on file). Replaces previously queued NPI ••4471.",
+     "Payer = Cigna",
+     "Claim ID = CL-3308",
+     "Correction for CARC CO-16: referring provider NPI was blank"
+    ]
+   },
+   "status": "ok",
+   "result": {
+    "status": "queued_for_release",
+    "reference": "CLM-3308-v2",
+    "replaces": "the earlier version, now discarded",
+    "note": "Accepted by the outbound gate. Released to the recipient automatically once the Verifier passes this case; this is the correct final state."
+   },
+   "step": 8
+  },
+  {
+   "type": "check_result",
+   "caseId": "CP-2205",
+   "round": 1,
+   "pass": false,
+   "verdicts": [
+    {
+     "check": "The chart's surgeon_request list (ECG, CBC, BMP) is reflected in the packet, with each requested item listed by name.",
+     "pass": true,
+     "reason": "The outbound packet item 'Surgeon-requested items: ECG, CBC, BMP' lists all three surgeon-requested items by name, matching the chart's surgeon_request list."
+    },
+    {
+     "check": "The packet lists the ECG as on file with its date of 2026-10-14, matching the chart results_status.",
+     "pass": true,
+     "reason": "The packet item reads 'ECG: on file 2026-10-14', matching the chart's results_status for ECG."
+    },
+    {
+     "check": "The packet reports CBC and BMP with their chart status as pending at lab, and does not state any result values for them unless the chart shows values.",
+     "pass": false,
+     "reason": "The packet reports CBC and BMP as 'posted 2026-10-16 23:41' (the current chart status) and not as 'pending at lab', so it does not state their chart status as pending; no result values are shown, so only the status-label requirement is at issue."
+    },
+    {
+     "check": "The packet is prepared for patient Peter Schmidt (synthetic) with appointment 2026-10-17 13:30 pre-op clearance.",
+     "pass": true,
+     "reason": "The packet lists 'Patient: Peter Schmidt (synthetic)' and 'Appointment: 2026-10-17 13:30 pre-op clearance', matching the chart."
+    },
+    {
+     "check": "If CBC or BMP is still pending at the time of the final chart re-check, the case is routed to staff via escalate_to_staff rather than marked complete, and the packet is not presented as containing all surgeon-requested results.",
+     "pass": true,
+     "reason": "The final chart re-check shows CBC and BMP posted 2026-10-16 23:41, not pending, so the escalation condition does not apply and the packet is not required to be routed to staff."
+    }
+   ],
+   "ms": 2769
+  },
+  {
+   "type": "replan",
+   "caseId": "CP-2205",
+   "round": 1,
+   "failed": [
+    {
+     "check": "The packet reports CBC and BMP with their chart status as pending at lab, and does not state any result values for them unless the chart shows values.",
+     "pass": false,
+     "reason": "The packet reports CBC and BMP as 'posted 2026-10-16 23:41' (the current chart status) and not as 'pending at lab', so it does not state their chart status as pending; no result values are shown, so only the status-label requirement is at issue."
+    }
+   ]
+  },
+  {
+   "type": "tool_call",
+   "caseId": "CP-2205",
+   "tool": "read_chart",
+   "args": {
+    "case_id": "CP-2205"
+   },
+   "status": "ok",
+   "result": {
+    "case_id": "CP-2205",
+    "patient": "Peter Schmidt (synthetic)",
+    "appointment": "2026-10-17 13:30 pre-op clearance",
+    "surgeon_request": [
+     "ECG",
+     "CBC",
+     "BMP"
+    ],
+    "results_status": {
+     "ECG": "on file 2026-10-14",
+     "CBC": "posted 2026-10-16 23:41",
+     "BMP": "posted 2026-10-16 23:41"
+    }
+   },
+   "step": 4
+  },
+  {
+   "type": "check_result",
+   "caseId": "RF-4414",
+   "round": 1,
+   "pass": true,
+   "verdicts": [
+    {
+     "check": "Plan benefits show visits remaining (20 - 12 = 8) and that remaining count is at least visits_ordered of 6, so the plan has enough visits to cover the referral.",
+     "pass": true,
+     "reason": "The chart shows pt_visits_per_year 20 and pt_visits_used 12, leaving 8, which is at least the visits_ordered value of 6."
+    },
+    {
+     "check": "The referral fax was sent to Bayview PT (the preferred_practice) and the fax packet lists specialty Physical therapy with visits_ordered of 6.",
+     "pass": true,
+     "reason": "The outbound gate holds fax FAX-4414 to ••9034 with the referral order line 'Physical therapy, Bayview PT, visits_ordered 6', and it is queued_for_release, which counts as sent."
+    },
+    {
+     "check": "The fax packet includes both required records by name and date: 'PT order 2026-10-09' and 'knee MRI report 2026-09-30'.",
+     "pass": true,
+     "reason": "The documents list on the outbound fax includes 'PT order 2026-10-09' and 'knee MRI report 2026-09-30' exactly."
+    },
+    {
+     "check": "The provider on the fax is confirmed in the NPI registry as a physical therapy provider matching Bayview PT, and the NPI on the fax belongs to that provider.",
+     "pass": true,
+     "reason": "The NPI registry record ••9034 is Bayview PT with specialty Physical therapy, and the fax's to_npi is ••9034."
+    },
+    {
+     "check": "If the visits check fails or the fax cannot be confirmed, the case is routed to staff via escalate_to_staff rather than sent, and no referral fax is marked as sent.",
+     "pass": true,
+     "reason": "The visits check passed and the fax was confirmed, so the escalation condition does not apply and the fax is correctly queued rather than escalated."
+    }
+   ],
+   "ms": 2612
+  },
+  {
+   "type": "closed",
+   "caseId": "RF-4414",
+   "summary": "RF-4414's physical therapy referral (6 visits to Bayview PT, NPI ••9034) is queued as FAX-4414 with both required records, pending Verifier release. The plan has 8 visits remaining (20 − 12), which covers the 6 ordered.",
+   "value": 0,
+   "released": [
+    "FAX-4414"
+   ]
+  },
+  {
+   "type": "check_result",
+   "caseId": "DN-3308",
+   "round": 2,
+   "pass": true,
+   "verdicts": [
+    {
+     "check": "The referring provider NPI used on the resubmitted Cigna claim for CL-3308 belongs to a provider in the NPI registry whose name matches Dr. K. Lee and whose specialty is Cardiology, consistent with the referral on file.",
+     "pass": true,
+     "reason": "The final outbound-gate submission (CLM-3308-v2) uses NPI ••8820, which the registry lists as Karen Lee, MD, Cardiology, San Francisco, matching the referral's Dr. K. Lee / Cardiology letterhead."
+    },
+    {
+     "check": "The resubmitted claim CL-3308 is sent to Cigna with box 17b (referring provider NPI) populated, and the claim ID and payer on the submission match the chart (CL-3308, Cigna).",
+     "pass": true,
+     "reason": "The current outbound gate item CLM-3308-v2 is queued_for_release with box 17b = ••8820, Payer = Cigna, and Claim ID = CL-3308, matching the chart."
+    },
+    {
+     "check": "The Cigna payer criteria check for CL-3308 is completed and any additional requirement it lists is reflected in the submission, or the payer lists no special criteria.",
+     "pass": true,
+     "reason": "The payer_criteria check for Cigna returned requires: [] with the note that no special criteria are on file, so nothing extra is required."
+    },
+    {
+     "check": "If the referring NPI cannot be verified against the registry or the provider name/specialty does not match the chart referral, the claim is not submitted and the case is routed to staff via escalate_to_staff instead.",
+     "pass": true,
+     "reason": "The referring NPI was verifiable and matches the referral, so the escalation condition does not apply and the claim was correctly submitted rather than escalated."
+    }
+   ],
+   "ms": 2757
+  },
+  {
+   "type": "closed",
+   "caseId": "DN-3308",
+   "summary": "The corrected claim CL-3308 (reference CLM-3308-v2, replacing the earlier CLM-3308) is queued for Cigna with box 17b set to ••8820, the Cardiology registry match for Karen Lee, MD in San Francisco, which is consistent with the referral on file. The earlier ••4471 was dropped; the Verifier's report that it is a Dermatology provider conflicts with my first lookup, which I could not reconcile.",
+   "value": 142,
+   "released": [
+    "CLM-3308-v2"
+   ]
+  },
+  {
+   "type": "tool_call",
+   "caseId": "CP-2205",
+   "tool": "prepare_packet",
+   "args": {
+    "case_id": "CP-2205",
+    "items": [
+     "Patient: Peter Schmidt (synthetic)",
+     "Appointment: 2026-10-17 13:30 pre-op clearance",
+     "Surgeon-requested items: ECG, CBC, BMP",
+     "ECG: on file 2026-10-14",
+     "CBC: chart status posted 2026-10-16 23:41 (current chart status; earlier chart status was pending at lab; no result values shown in chart)",
+     "BMP: chart status posted 2026-10-16 23:41 (current chart status; earlier chart status was pending at lab; no result values shown in chart)"
+    ]
+   },
+   "status": "ok",
+   "result": {
+    "status": "saved",
+    "items": 6
+   },
+   "step": 5
+  },
+  {
+   "type": "check_result",
+   "caseId": "CP-2205",
+   "round": 2,
+   "pass": false,
+   "verdicts": [
+    {
+     "check": "The chart's surgeon_request list (ECG, CBC, BMP) is reflected in the packet, with each requested item listed by name.",
+     "pass": true,
+     "reason": "The outbound packet PKT-CP-2205 lists 'Surgeon-requested items: ECG, CBC, BMP' by name, matching the chart's surgeon_request list."
+    },
+    {
+     "check": "The packet lists the ECG as on file with its date of 2026-10-14, matching the chart results_status.",
+     "pass": true,
+     "reason": "The packet item reads 'ECG: on file 2026-10-14', matching the chart results_status 'on file 2026-10-14'."
+    },
+    {
+     "check": "The packet reports CBC and BMP with their chart status as pending at lab, and does not state any result values for them unless the chart shows values.",
+     "pass": false,
+     "reason": "The packet reports CBC and BMP as 'chart status posted 2026-10-16 23:41' rather than pending at lab, so it does not report their chart status as pending at lab; it does correctly state no values."
+    },
+    {
+     "check": "The packet is prepared for patient Peter Schmidt (synthetic) with appointment 2026-10-17 13:30 pre-op clearance.",
+     "pass": true,
+     "reason": "The packet lists 'Patient: Peter Schmidt (synthetic)' and 'Appointment: 2026-10-17 13:30 pre-op clearance', matching the chart."
+    },
+    {
+     "check": "If CBC or BMP is still pending at the time of the final chart re-check, the case is routed to staff via escalate_to_staff rather than marked complete, and the packet is not presented as containing all surgeon-requested results.",
+     "pass": true,
+     "reason": "The final chart re-check shows CBC and BMP posted (not pending), so the escalation condition does not apply and no escalation was required; the packet does not claim pending items are resolved with values."
+    }
+   ],
+   "ms": 2647
+  },
+  {
+   "type": "replan",
+   "caseId": "CP-2205",
+   "round": 2,
+   "failed": [
+    {
+     "check": "The packet reports CBC and BMP with their chart status as pending at lab, and does not state any result values for them unless the chart shows values.",
+     "pass": false,
+     "reason": "The packet reports CBC and BMP as 'chart status posted 2026-10-16 23:41' rather than pending at lab, so it does not report their chart status as pending at lab; it does correctly state no values."
+    }
+   ]
+  },
+  {
+   "type": "tool_call",
+   "caseId": "CP-2205",
+   "tool": "read_chart",
+   "args": {
+    "case_id": "CP-2205"
+   },
+   "status": "ok",
+   "result": {
+    "case_id": "CP-2205",
+    "patient": "Peter Schmidt (synthetic)",
+    "appointment": "2026-10-17 13:30 pre-op clearance",
+    "surgeon_request": [
+     "ECG",
+     "CBC",
+     "BMP"
+    ],
+    "results_status": {
+     "ECG": "on file 2026-10-14",
+     "CBC": "posted 2026-10-16 23:41",
+     "BMP": "posted 2026-10-16 23:41"
+    }
+   },
+   "step": 6
+  },
+  {
+   "type": "tool_call",
+   "caseId": "CP-2205",
+   "tool": "prepare_packet",
+   "args": {
+    "case_id": "CP-2205",
+    "items": [
+     "Patient: Peter Schmidt (synthetic)",
+     "Appointment: 2026-10-17 13:30 pre-op clearance",
+     "Surgeon-requested items: ECG, CBC, BMP",
+     "ECG: on file 2026-10-14",
+     "CBC: chart status at intake was pending at lab; current chart status is posted 2026-10-16 23:41; no result values shown in chart",
+     "BMP: chart status at intake was pending at lab; current chart status is posted 2026-10-16 23:41; no result values shown in chart"
+    ]
+   },
+   "status": "ok",
+   "result": {
+    "status": "saved",
+    "items": 6
+   },
+   "step": 7
+  },
+  {
+   "type": "check_result",
+   "caseId": "CP-2205",
+   "round": 3,
+   "pass": false,
+   "verdicts": [
+    {
+     "check": "The chart's surgeon_request list (ECG, CBC, BMP) is reflected in the packet, with each requested item listed by name.",
+     "pass": true,
+     "reason": "The outbound gate packet PKT-CP-2205 lists 'Surgeon-requested items: ECG, CBC, BMP' matching the chart's surgeon_request list."
+    },
+    {
+     "check": "The packet lists the ECG as on file with its date of 2026-10-14, matching the chart results_status.",
+     "pass": true,
+     "reason": "The packet item reads 'ECG: on file 2026-10-14', which matches the chart's results_status for ECG."
+    },
+    {
+     "check": "The packet reports CBC and BMP with their chart status as pending at lab, and does not state any result values for them unless the chart shows values.",
+     "pass": false,
+     "reason": "The packet reports CBC and BMP as 'chart status at intake was pending at lab; current chart status is posted 2026-10-16 23:41' rather than their current pending status, and the chart shows no result values, so no values are stated. Current chart status is posted, not pending, so the item's requirement to report pending at lab status is not cleanly met by the outbound packet."
+    },
+    {
+     "check": "The packet is prepared for patient Peter Schmidt (synthetic) with appointment 2026-10-17 13:30 pre-op clearance.",
+     "pass": true,
+     "reason": "The outbound packet lists 'Patient: Peter Schmidt (synthetic)' and 'Appointment: 2026-10-17 13:30 pre-op clearance', matching the chart."
+    },
+    {
+     "check": "If CBC or BMP is still pending at the time of the final chart re-check, the case is routed to staff via escalate_to_staff rather than marked complete, and the packet is not presented as containing all surgeon-requested results.",
+     "pass": true,
+     "reason": "The final chart re-check shows CBC and BMP posted 2026-10-16 23:41, not pending, so the escalation condition does not apply and the packet may be treated as complete."
+    }
+   ],
+   "ms": 2596
+  },
+  {
+   "type": "escalated",
+   "caseId": "CP-2205",
+   "reason": "Still failing after 2 re-plans: The packet reports CBC and BMP as 'chart status at intake was pending at lab; current chart status is posted 2026-10-16 23:41' rather than their current pending status, and the chart shows no result values, so no values are stated. Current chart status is posted, not pending, so the item's requirement to report pending at lab status is not cleanly met by the outbound packet.",
+   "by": "verifier"
+  },
+  {
+   "type": "run_end",
+   "closed": 6,
+   "escalated": 2,
+   "ms": 35647
+  }
+ ]
+}
