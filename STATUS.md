@@ -1,4 +1,4 @@
-# Status: Sat Oct 17, 00:15 (branch `live-agent-loop`)
+# Status: Sat Oct 17, 00:36 (branch `live-agent-loop`)
 
 Tuning and the Version N+1 experiments ran on `claude-haiku-5-5`. At 00:06 the first full run on **Crusoe + Nemotron** went through the Vercel preview (details below).
 
@@ -13,7 +13,9 @@ Tuning and the Version N+1 experiments ran on `claude-haiku-5-5`. At 00:06 the f
   - A close gate in code: no case closes while its chart or payer criteria require a human.
   - The Verifier now gets a deterministic registry cross-check of every NPI in the outgoing submission.
   - Re-tested locally on Nemotron with CP-2204, DN-3308 and PA-1043: CP-2204 escalates by rule, DN-3308 goes fail → re-plan → pass with ••8820, and PA-1043 goes to staff.
-- **Not yet re-run as a full 20 on the preview after the fix.**
+- **00:23 re-run on the preview:** both fixes held. But with more Verifier catches the single request hit the 300 s cap, leaving 3 cases unfinished.
+- **Fixed (00:30):** the browser now runs CASE_CONCURRENCY lanes and sends one request per case, so no request has to fit the whole backlog.
+- **00:31 full run on the preview, Nemotron:** all 20 finished in 269 s with no errors. 16 closed and 4 went to staff, exactly the expected four: PA-1043 signature, RF-4411 insurance, RF-4412 loop stop, and CP-2204 by rule. DN-3308 went fail → re-plan → pass with ••8820. $11,983.35 recovered.
 
 ## What works
 - **Live agent loop, 20 cases, 4 in parallel:** Planner done-checklist → Worker tools → Verifier → close, re-plan (max 2), loop stop or escalation. No crashes in any run. DN-3308 (wrong-specialty NPI) goes fail → re-plan → pass reliably.
@@ -39,7 +41,7 @@ Score = correct closes + correct escalations − over-escalations − 2·missed 
 - **Haiku still over-escalates about 1 case in 12, at random:** the worker escalates work it could finish, or the Verifier fails a correct output on wording. That's the main source of the noise above.
 - **The first experiment found a CP-2205 data bug:** the chart changed between Planner and Verifier. It's fixed, and those runs are archived in `runs/pre-fix/`.
 - **Nemotron is only lightly tested:** one full preview run plus a 3-case re-test. Its over-escalation rate and run-to-run noise are unknown, and the Version N+1 experiments haven't been run on it.
-- **Vercel Hobby limits a run to 300 s.** Keep CASE_CONCURRENCY at 4 or more for a full 20-case run.
+- **Vercel Hobby limits each request to 300 s.** That's now per case, not per run.
 
 ## Commands
 ```bash
