@@ -1,0 +1,237 @@
+{
+  "at": "2026-10-17T06:45:13.296Z",
+  "models": {
+    "planner": "claude-haiku-5-5",
+    "worker": "claude-haiku-5-5",
+    "verifier": "claude-haiku-5-5",
+    "reviewer": "claude-haiku-5-5"
+  },
+  "formula": "closed_correct + escalated_correct − over_escalated − 2·missed_escalation − replans − loops",
+  "split": {
+    "note": "Fixed split for the Version N+1 loop: 3 training + 2 held-out cases per specialist. Expected outcomes live in lib/cases.ts (expect).",
+    "training": [
+      "PA-1042",
+      "PA-1043",
+      "PA-1045",
+      "CP-2201",
+      "CP-2203",
+      "CP-2204",
+      "DN-3307",
+      "DN-3309",
+      "DN-3311",
+      "RF-4410",
+      "RF-4412",
+      "RF-4413"
+    ],
+    "heldout": [
+      "PA-1044",
+      "PA-1046",
+      "CP-2202",
+      "CP-2205",
+      "DN-3308",
+      "DN-3310",
+      "RF-4411",
+      "RF-4414"
+    ]
+  },
+  "repeats": 3,
+  "original": 2,
+  "heldout_baseline": 1,
+  "candidate": 3,
+  "kept": false,
+  "current": 2,
+  "change": {
+    "section": "worker",
+    "action": "add",
+    "rule": "If an outbound send returns a busy or transient failure, retry with a different available channel or wait-and-retry rather than repeating identical arguments more than once, and escalate only after alternatives are exhausted.",
+    "rationale": "RF-4412 looped after fax_send was called 3 times with identical arguments and hit a line-busy result, costing a loop penalty and forcing an escalation the worker could have worked around. A general rule to vary the approach after a transient failure addresses this without touching safety rules."
+  },
+  "diff": [
+    {
+      "section": "worker",
+      "op": "+",
+      "rule": "If an outbound send returns a busy or transient failure, retry with a different available channel or wait-and-retry rather than repeating identical arguments more than once, and escalate only after alternatives are exhausted."
+    }
+  ],
+  "training": {
+    "baseline": 9.67,
+    "candidate": 8,
+    "runs": [
+      {
+        "file": "runs/2026-10-17T06-40-57-671Z-train-baseline-r1-v2.json",
+        "playbook": 2,
+        "score": {
+          "score": 11,
+          "closed_correct": 9,
+          "escalated_correct": 3,
+          "over_escalated": 0,
+          "missed_escalation": 0,
+          "replans": 0,
+          "loops": 1,
+          "cases": 12
+        }
+      },
+      {
+        "file": "runs/2026-10-17T06-41-17-972Z-train-baseline-r2-v2.json",
+        "playbook": 2,
+        "score": {
+          "score": 10,
+          "closed_correct": 8,
+          "escalated_correct": 3,
+          "over_escalated": 1,
+          "missed_escalation": 0,
+          "replans": 0,
+          "loops": 0,
+          "cases": 12
+        }
+      },
+      {
+        "file": "runs/2026-10-17T06-41-41-304Z-train-baseline-r3-v2.json",
+        "playbook": 2,
+        "score": {
+          "score": 8,
+          "closed_correct": 8,
+          "escalated_correct": 3,
+          "over_escalated": 1,
+          "missed_escalation": 0,
+          "replans": 1,
+          "loops": 1,
+          "cases": 12
+        }
+      },
+      {
+        "file": "runs/2026-10-17T06-42-05-018Z-train-candidate-r1-v3.json",
+        "playbook": 3,
+        "score": {
+          "score": 8,
+          "closed_correct": 8,
+          "escalated_correct": 3,
+          "over_escalated": 1,
+          "missed_escalation": 0,
+          "replans": 2,
+          "loops": 0,
+          "cases": 12
+        }
+      },
+      {
+        "file": "runs/2026-10-17T06-42-33-975Z-train-candidate-r2-v3.json",
+        "playbook": 3,
+        "score": {
+          "score": 7,
+          "closed_correct": 8,
+          "escalated_correct": 3,
+          "over_escalated": 1,
+          "missed_escalation": 0,
+          "replans": 3,
+          "loops": 0,
+          "cases": 12
+        }
+      },
+      {
+        "file": "runs/2026-10-17T06-42-55-647Z-train-candidate-r3-v3.json",
+        "playbook": 3,
+        "score": {
+          "score": 9,
+          "closed_correct": 8,
+          "escalated_correct": 3,
+          "over_escalated": 1,
+          "missed_escalation": 0,
+          "replans": 1,
+          "loops": 0,
+          "cases": 12
+        }
+      }
+    ]
+  },
+  "heldout": {
+    "before": 4.67,
+    "after": 5.33,
+    "runs": [
+      {
+        "file": "runs/2026-10-17T06-43-13-133Z-heldout-original-r1-v1.json",
+        "playbook": 1,
+        "score": {
+          "score": 5,
+          "closed_correct": 6,
+          "escalated_correct": 1,
+          "over_escalated": 1,
+          "missed_escalation": 0,
+          "replans": 1,
+          "loops": 0,
+          "cases": 8
+        }
+      },
+      {
+        "file": "runs/2026-10-17T06-43-41-051Z-heldout-original-r2-v1.json",
+        "playbook": 1,
+        "score": {
+          "score": 3,
+          "closed_correct": 6,
+          "escalated_correct": 1,
+          "over_escalated": 1,
+          "missed_escalation": 0,
+          "replans": 3,
+          "loops": 0,
+          "cases": 8
+        }
+      },
+      {
+        "file": "runs/2026-10-17T06-44-11-752Z-heldout-original-r3-v1.json",
+        "playbook": 1,
+        "score": {
+          "score": 6,
+          "closed_correct": 7,
+          "escalated_correct": 1,
+          "over_escalated": 0,
+          "missed_escalation": 0,
+          "replans": 2,
+          "loops": 0,
+          "cases": 8
+        }
+      },
+      {
+        "file": "runs/2026-10-17T06-44-30-636Z-heldout-kept-r1-v2.json",
+        "playbook": 2,
+        "score": {
+          "score": 7,
+          "closed_correct": 7,
+          "escalated_correct": 1,
+          "over_escalated": 0,
+          "missed_escalation": 0,
+          "replans": 1,
+          "loops": 0,
+          "cases": 8
+        }
+      },
+      {
+        "file": "runs/2026-10-17T06-44-54-480Z-heldout-kept-r2-v2.json",
+        "playbook": 2,
+        "score": {
+          "score": 2,
+          "closed_correct": 6,
+          "escalated_correct": 1,
+          "over_escalated": 1,
+          "missed_escalation": 0,
+          "replans": 4,
+          "loops": 0,
+          "cases": 8
+        }
+      },
+      {
+        "file": "runs/2026-10-17T06-45-13-287Z-heldout-kept-r3-v2.json",
+        "playbook": 2,
+        "score": {
+          "score": 7,
+          "closed_correct": 7,
+          "escalated_correct": 1,
+          "over_escalated": 0,
+          "missed_escalation": 0,
+          "replans": 1,
+          "loops": 0,
+          "cases": 8
+        }
+      }
+    ]
+  },
+  "file": "runs/2026-10-17T06-45-13-296Z-evolution.json"
+}

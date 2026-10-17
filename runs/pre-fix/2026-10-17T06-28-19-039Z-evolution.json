@@ -1,0 +1,123 @@
+{
+  "at": "2026-10-17T06:28:19.038Z",
+  "models": {
+    "planner": "claude-haiku-5-5",
+    "worker": "claude-haiku-5-5",
+    "verifier": "claude-haiku-5-5",
+    "reviewer": "claude-haiku-5-5"
+  },
+  "formula": "closed_correct + escalated_correct − over_escalated − 2·missed_escalation − replans − loops",
+  "split": {
+    "note": "Fixed split for the Version N+1 loop: 3 training + 2 held-out cases per specialist. Expected outcomes live in lib/cases.ts (expect).",
+    "training": [
+      "PA-1042",
+      "PA-1043",
+      "PA-1045",
+      "CP-2201",
+      "CP-2203",
+      "CP-2204",
+      "DN-3307",
+      "DN-3309",
+      "DN-3311",
+      "RF-4410",
+      "RF-4412",
+      "RF-4413"
+    ],
+    "heldout": [
+      "PA-1044",
+      "PA-1046",
+      "CP-2202",
+      "CP-2205",
+      "DN-3308",
+      "DN-3310",
+      "RF-4411",
+      "RF-4414"
+    ]
+  },
+  "repeats": 1,
+  "original": 1,
+  "candidate": 2,
+  "kept": true,
+  "current": 2,
+  "change": {
+    "section": "worker",
+    "action": "add",
+    "rule": "When a provider lookup (NPI registry search) returns no match for a provider the goal needs, first retry the lookup with the alternate identifier the chart supplies (e.g., the NPI or the rendering provider's name) before escalating; escalate only if no alternate identifier produces a match.",
+    "rationale": "DN-3307 and DN-3309 were escalated after a single registry search for the clinic name returned nothing, while the chart likely held other identifiers; these were over-escalations that cost score. The rule targets the over-escalation pattern without touching the clinical/signature escalation rules."
+  },
+  "diff": [
+    {
+      "section": "worker",
+      "op": "+",
+      "rule": "When a provider lookup (NPI registry search) returns no match for a provider the goal needs, first retry the lookup with the alternate identifier the chart supplies (e.g., the NPI or the rendering provider's name) before escalating; escalate only if no alternate identifier produces a match."
+    }
+  ],
+  "training": {
+    "baseline": 5,
+    "candidate": 9,
+    "runs": [
+      {
+        "file": "runs/2026-10-17T06-27-15-681Z-train-baseline-v1.json",
+        "playbook": 1,
+        "score": {
+          "score": 5,
+          "closed_correct": 7,
+          "escalated_correct": 3,
+          "over_escalated": 2,
+          "missed_escalation": 0,
+          "replans": 2,
+          "loops": 1,
+          "cases": 12
+        }
+      },
+      {
+        "file": "runs/2026-10-17T06-27-38-801Z-train-candidate-v2.json",
+        "playbook": 2,
+        "score": {
+          "score": 9,
+          "closed_correct": 8,
+          "escalated_correct": 3,
+          "over_escalated": 1,
+          "missed_escalation": 0,
+          "replans": 0,
+          "loops": 1,
+          "cases": 12
+        }
+      }
+    ]
+  },
+  "heldout": {
+    "before": 4,
+    "after": 6,
+    "runs": [
+      {
+        "file": "runs/2026-10-17T06-27-59-540Z-heldout-original-v1.json",
+        "playbook": 1,
+        "score": {
+          "score": 4,
+          "closed_correct": 7,
+          "escalated_correct": 1,
+          "over_escalated": 0,
+          "missed_escalation": 0,
+          "replans": 4,
+          "loops": 0,
+          "cases": 8
+        }
+      },
+      {
+        "file": "runs/2026-10-17T06-28-19-035Z-heldout-kept-v2.json",
+        "playbook": 2,
+        "score": {
+          "score": 6,
+          "closed_correct": 7,
+          "escalated_correct": 1,
+          "over_escalated": 0,
+          "missed_escalation": 0,
+          "replans": 2,
+          "loops": 0,
+          "cases": 8
+        }
+      }
+    ]
+  }
+}

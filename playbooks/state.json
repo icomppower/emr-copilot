@@ -1,0 +1,31 @@
+{
+  "current": 2,
+  "history": [
+    {
+      "version": 2,
+      "from": 1,
+      "kept": true,
+      "at": "2026-10-17T06:40:34.769Z",
+      "change": {
+        "section": "planner",
+        "action": "add",
+        "rule": "Do not add checks that require timestamps, send dates, or \"submitted today\" confirmation unless the goal explicitly asks for a date; the environment's current date is given, so judge outbound actions by their values and status, not by date stamps the tool records do not show.",
+        "rationale": "Verifier repeatedly failed closed cases (CP-2201, RF-4413) because checks demanded send timestamps or dates that tool logs never record, causing replans and a false escalation. This targets the \"unverifiable date\" failure mode without weakening value checks."
+      },
+      "run": "runs/2026-10-17T06-40-34-770Z-evolution.json"
+    },
+    {
+      "version": 3,
+      "from": 2,
+      "kept": false,
+      "at": "2026-10-17T06:45:13.296Z",
+      "change": {
+        "section": "worker",
+        "action": "add",
+        "rule": "If an outbound send returns a busy or transient failure, retry with a different available channel or wait-and-retry rather than repeating identical arguments more than once, and escalate only after alternatives are exhausted.",
+        "rationale": "RF-4412 looped after fax_send was called 3 times with identical arguments and hit a line-busy result, costing a loop penalty and forcing an escalation the worker could have worked around. A general rule to vary the approach after a transient failure addresses this without touching safety rules."
+      },
+      "run": "runs/2026-10-17T06-45-13-296Z-evolution.json"
+    }
+  ]
+}
