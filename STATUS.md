@@ -1,4 +1,17 @@
-# Status: Sat Oct 17, 00:36 (branch `live-agent-loop`)
+# Status: Sat Oct 17, 15:28 (branch `live-agent-loop`)
+
+## Concurrency test (Sat afternoon): chosen `CASE_CONCURRENCY=4`
+The Vercel team turned out to be on **Pro**, so `/api/run` now has `maxDuration = 800`. The lane cap went from 8 to 20, and every LLM backoff is logged (`[llm] backoff …`).
+
+| Lanes | Wall | 429 failures (cases errored out) | Slowest case | Closed | $ | Escalations | DN-3308 |
+|---|---|---|---|---|---|---|---|
+| 4 (Fri 00:31) | 269 s | 0 | – | 16 | $11,983.35 | 4 (all expected) | fail → re-plan → pass |
+| 20 | 388 s | 6 | DN-3311 388 s | 9 | $10,290.75 | 11 (6 from 429 errors) | fail → re-plan → pass |
+| 10 | 292 s | 2 | RF-4412 196 s | 14 | $10,573.35 | 6 (2 from 429 errors) | fail → re-plan → pass |
+
+Crusoe returns `429 max_requests_limit (orchestrator)` at 10+ lanes even after the $50 credits, so this looks like a concurrent-request cap, not 600 RPM. Higher concurrency is slower and drops cases. The ~100 s goal isn't reachable on this key: start the run before walking on stage, or show a finished run.
+
+## Earlier: Sat Oct 17, 00:36 (branch `live-agent-loop`)
 
 Tuning and the Version N+1 experiments ran on `claude-haiku-5-5`. At 00:06 the first full run on **Crusoe + Nemotron** went through the Vercel preview (details below).
 
