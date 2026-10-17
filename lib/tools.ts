@@ -81,10 +81,17 @@ export interface ToolCtx {
 
 export type ToolResult = { ok: true; data: Record<string, unknown> } | { ok: false; error: string };
 
+// One slot per outbound tool: a resubmission replaces what the gate held, so only the latest version is ever released.
 const held = (ctx: ToolCtx, tool: string, args: Record<string, unknown>, prefix: string): ToolResult => {
-  const reference = `${prefix}-${ctx.c.id.replace(/\D/g, "")}${ctx.outbox.length ? "-" + (ctx.outbox.length + 1) : ""}`;
+  const prev = ctx.outbox.findIndex((o) => o.tool === tool);
+  const version = prev >= 0 ? Number(ctx.outbox[prev].reference.split("-v")[1] || 1) + 1 : 1;
+  const reference = `${prefix}-${ctx.c.id.replace(/\D/g, "")}${version > 1 ? "-v" + version : ""}`;
+  if (prev >= 0) ctx.outbox.splice(prev, 1);
   ctx.outbox.push({ tool, args, reference });
-  return { ok: true, data: { status: "queued_for_release", reference, note: "Held at the outbound gate until the Verifier passes this case." } };
+  return {
+    ok: true,
+    data: { status: "queued_for_release", reference, ...(version > 1 ? { replaces: "the earlier version, now discarded" } : {}), note: "Accepted by the outbound gate. Released to the recipient automatically once the Verifier passes this case; this is the correct final state." },
+  };
 };
 
 export function runTool(ctx: ToolCtx, name: string, args: Record<string, unknown>): ToolResult {
@@ -100,8 +107,9 @@ export function runTool(ctx: ToolCtx, name: string, args: Record<string, unknown
       return c.era ? { ok: true, data: c.era } : { ok: false, error: `No ERA on file for ${String(args.claim_id)}.` };
     case "check_npi": {
       if (c.traps?.npiNameOnly && ctx.round === 0) {
-        // Planted trap: name-only hit, specialty not returned. Only the Verifier's registry check can catch it.
-        return { ok: true, data: { query: args, matches: [{ npi: c.traps.npiNameOnly, name: "K. Lee, MD", city: "San Francisco" }], note: "Name search, 1 match." } };
+        // Planted trap: the quick directory lookup is stale and labels the same-name dermatologist as cardiology.
+        // Only the Verifier's authoritative registry check can catch it; after a Verifier fail the lookup returns registry data.
+        return { ok: true, data: { query: args, matches: [{ npi: c.traps.npiNameOnly, name: "K. Lee, MD", specialty: "Cardiology", city: "San Francisco" }] } };
       }
       const pool = (c.providers || Object.keys(REGISTRY)).map((k) => REGISTRY[k]);
       const spec = String(args.specialty).toLowerCase();
@@ -109,7 +117,7 @@ export function runTool(ctx: ToolCtx, name: string, args: Record<string, unknown
       return { ok: true, data: { query: args, matches: hits.length ? hits : pool } };
     }
     case "payer_criteria":
-      return { ok: true, data: c.criteria || { payer: args.payer, item: args.item, requires: [], note: "No special criteria on file." } };
+      return { ok: true, data: c.criteria || { payer: args.payer, item: args.item, requires: [], note: "No special criteria on file: standard rules apply and nothing extra is required." } };
     case "submit_claim":
     case "submit_auth": {
       const trap = c.traps?.submitFailsOnce;
@@ -123,6 +131,7 @@ export function runTool(ctx: ToolCtx, name: string, args: Record<string, unknown
       return held(ctx, name, args, "FAX");
     }
     case "prepare_packet":
+      ctx.outbox = ctx.outbox.filter((o) => o.tool !== name);
       ctx.outbox.push({ tool: name, args, reference: `PKT-${c.id}` });
       return { ok: true, data: { status: "saved", items: (args.items as string[]).length } };
     default:

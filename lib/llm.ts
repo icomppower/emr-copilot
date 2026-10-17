@@ -33,7 +33,7 @@ function getClient() {
 export async function chat(
   role: Role,
   messages: ChatCompletionMessageParam[],
-  opts: { tools?: ChatCompletionTool[]; maxTokens?: number; signal?: AbortSignal } = {},
+  opts: { tools?: ChatCompletionTool[]; forceTool?: string; maxTokens?: number; signal?: AbortSignal } = {},
 ): Promise<{ message: ChatCompletionMessage; ms: number }> {
   const t0 = Date.now();
   const res = await getClient().chat.completions.create(
@@ -41,8 +41,8 @@ export async function chat(
       model: llmConfig().models[role],
       messages,
       max_tokens: opts.maxTokens ?? 1200,
-      temperature: 0,
       ...(opts.tools ? { tools: opts.tools } : {}),
+      ...(opts.forceTool ? { tool_choice: { type: "function" as const, function: { name: opts.forceTool } } } : {}),
     },
     { signal: opts.signal },
   );
