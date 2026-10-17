@@ -6,7 +6,8 @@ An agent team that clears a clinic's overnight back-office backlog (claim denial
 
 **Built before the event**
 - Oct 13–14: scripted UI shell (agent graph, log, backlog, staff tray, morning report), originally a single `index.html`. It now lives as `app/markup.ts`, `app/globals.css` and `public/ui.js`.
-- Oct 16: Next.js wrapper, the live agent loop (`lib/`), `/api/run` SSE streaming and the live-mode UI wiring. Runs against the Claude API as a stand-in until Crusoe credentials arrive.
+- Oct 16 (evening): Next.js wrapper, the live agent loop (`lib/`), `/api/run` SSE streaming and the live-mode UI wiring. Runs against the Claude API as a stand-in until Crusoe credentials arrive.
+- Oct 16, 23:20 – Oct 17, 01:30: config-only provider swap (model per role, per-model sampling params, rate-limit backoff, forced-tool-call fallback) and the Version N+1 self-improvement layer (Reviewer agent, versioned playbooks, fixed training/held-out split, scored runs in `/runs`, Playbook panel). All tuned on `claude-haiku-5-5`, not yet on Nemotron.
 
 **Built at the event (Oct 17)**
 - _Fill in on the day._
@@ -28,6 +29,19 @@ The mock tools are deterministic: `read_chart`, `read_era`, `check_npi`, `payer_
 - **RF-4412:** the referral fax line is always busy, which trips the loop detector.
 - **DN-3311:** the clearinghouse rejects the first submit.
 - **CP-2205:** pre-op labs are still pending on the first chart read.
+
+## Version N+1 (self-improvement)
+
+The Planner and Worker follow a versioned playbook (`playbooks/playbook_vN.md`). Safety rules, environment facts and the Verifier stay in code, so the Reviewer can't weaken them. `npm run evolve` runs one step:
+
+1. Run the 12 training cases (`eval/split.json`) on the current playbook and score the run.
+2. A **Reviewer** agent reads the run log (over-escalations, Verifier failures, re-plans, loops) and proposes **one** rule change, saved as the next `playbook_vN.md`.
+3. Run training again with the candidate. It is kept only if the score improves; otherwise it is discarded.
+4. Run the 8 held-out cases on the original v1 and on the kept playbook to get the before/after.
+
+**Score** = correct closes + correct escalations − over-escalations − 2 × missed escalations − re-plans − loops.
+
+The expected outcome for each case is in `lib/cases.ts`; escalating is correct only for signature, insurance, clinical and dead-fax cases. Closing a case that needed staff costs double. Every run's events and score are saved as JSON in `runs/`, and the latest step's summary is in `runs/evolution-latest.json`. Live runs use the kept version recorded in `playbooks/state.json`. Use `--repeats N` to average N runs per playbook, which matters because single runs are noisy.
 
 ## Run
 

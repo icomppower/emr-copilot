@@ -286,3 +286,18 @@ transition:flex-grow .35s var(--ease),grid-template-rows .35s var(--ease)}
 .chk li{margin:.25rem 0}
 .chk li.no{color:var(--bad)}
 .chk small{display:block;color:var(--ink);opacity:.7}
+/* Playbook panel (Version N+1): secondary, compact */
+.pb{display:grid;gap:.45rem;font-size:.8rem}
+.pb p{margin:0}
+.pb .up{color:var(--ok)}
+.pb .down{color:var(--bad)}
+.pbd{display:grid;gap:.25rem}
+.df{font-family:var(--mono);font-size:.74rem;line-height:1.4;padding:.3rem .5rem;border-radius:6px;white-space:normal}
+.df.add{background:var(--ok-soft);color:var(--ok)}
+.df.del{background:var(--bad-soft);color:var(--bad)}
+.df .lbl{margin-right:.3rem}
+.pbr{color:var(--muted)}
+.pbs{display:grid;grid-template-columns:auto 1fr;gap:.2rem .7rem;margin:0}
+.pbs dt{color:var(--muted)}
+.pbs dd{margin:0}
+.pbf{font-size:.7rem;color:var(--muted)}

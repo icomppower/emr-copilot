@@ -708,6 +708,21 @@ log("System",`Live run failed: ${esc(err.message)}. Scripted fallback: add ?demo
 }
 if(runId===id&&running){setModeChip("done");finish(id)}
 }
+/* ======================= Playbook panel (Version N+1) ======================= */
+/* Secondary on purpose: version, the Reviewer's one change, and before/after scores from /runs. */
+function renderPlaybook(d){
+const el=$("pb");if(!el||!d)return;$("pbVer").textContent="v"+d.current;
+const L=d.latest;
+if(!L){el.innerHTML=`<p class="empty">Playbook v${d.current}. No Version N+1 run yet: <span class="mono">npm run evolve</span>.</p>`;return}
+const sc=(a,b)=>`<b class="num">${a}</b> → <b class="num ${b>a?"up":b<a?"down":""}">${b}</b>`;
+el.innerHTML=`<p class="pbh">Live runs use <b>playbook v${d.current}</b>. Last step: Reviewer proposed v${L.candidate}, <b class="${L.kept?"up":"down"}">${L.kept?"kept":"discarded"}</b>.</p>
+<div class="pbd">${L.diff.map(x=>`<div class="df ${x.op==="+"?"add":"del"}"><span class="lbl">${x.section}</span> ${x.op} ${esc(x.rule)}</div>`).join("")}</div>
+<p class="pbr">${esc(L.change.rationale)}</p>
+<dl class="pbs"><dt>Training (${L.split.training.length} cases)</dt><dd>v${L.original} ${sc(L.training.baseline,L.training.candidate)} v${L.candidate}</dd>
+<dt>Held-out (${L.split.heldout.length} cases)</dt><dd>v${L.heldout_baseline||L.original} ${sc(L.heldout.before,L.heldout.after)} v${L.current}</dd></dl>
+<p class="pbf mono">score = ${esc(L.formula)}${L.repeats>1?` · mean of ${L.repeats} runs`:""} · ${d.runs} runs saved in /runs · ${esc(L.models.worker)}</p>`;
+}
+fetch("/api/playbook").then(r=>r.ok?r.json():null).then(renderPlaybook).catch(()=>{});
 /* ======================= staff tray ======================= */
 function renderEsc(){
 const list=CASES.filter(c=>state[c.id]==="esc"||handled[c.id]);
@@ -771,7 +786,7 @@ applyDock();store.set("dockW",dockW);store.set("dockH",dockH);store.set("dockOpe
 SIDE.addEventListener("change",applyDock);PHONE.addEventListener("change",applyDock);
 $("dockBtn").onclick=()=>setDock(!dockOpen);
 function setSec(sec,open){const s=document.querySelector(`.sec[data-sec="${sec}"]`);s.classList.toggle("open",open);s.querySelector(".tgl").setAttribute("aria-expanded",open);secOpen[sec]=open;store.set("sec",secOpen)}
-document.querySelectorAll(".sec").forEach(s=>{const k=s.dataset.sec;setSec(k,secOpen[k]);s.querySelector(".tgl").onclick=()=>setSec(k,!s.classList.contains("open"))});
+document.querySelectorAll(".sec").forEach(s=>{const k=s.dataset.sec;setSec(k,!!secOpen[k]);s.querySelector(".tgl").onclick=()=>setSec(k,!s.classList.contains("open"))});
 /* graph follows its container */
 let roRAF=0;
 new ResizeObserver(()=>{cancelAnimationFrame(roRAF);roRAF=requestAnimationFrame(()=>{if(follow)fit(main.classList.contains("dragging")||!motion()?0:250)})}).observe($("graph"));

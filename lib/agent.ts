@@ -1,6 +1,7 @@
 import type { ChatCompletionMessageParam, ChatCompletionTool } from "openai/resources/chat/completions";
 import { RUN_GOAL, type LiveCase } from "./cases";
 import { chat, parseJsonReply } from "./llm";
+import { loadPlaybook, type Playbook } from "./playbook";
 import { registryFor, runTool, toolsFor, validateArgs, type ToolCtx } from "./tools";
 
 export const MAX_REPLANS = 2;
@@ -11,7 +12,7 @@ export interface ChecklistItem { id: string; check: string; evidence: string }
 export interface Verdict { check: string; pass: boolean; reason: string }
 
 export type RunEvent =
-  | { type: "run_start"; goal: string; cases: string[]; models: Record<string, string>; parallel: number }
+  | { type: "run_start"; goal: string; cases: string[]; models: Record<string, string>; parallel: number; playbook: number }
   | { type: "delegated"; caseId: string; agent: string }
   | { type: "checklist"; caseId: string; items: ChecklistItem[]; ms: number }
   | { type: "tool_call"; caseId: string; tool: string; args: unknown; status: "ok" | "error" | "invalid"; result: unknown; step: number }
@@ -72,8 +73,8 @@ const CHECKLIST_TOOL: ChatCompletionTool = {
 };
 
 // Planner and Verifier output goes through a forced tool call, validated, with one retry carrying the error.
-async function structured<T>(
-  role: "planner" | "verifier",
+export async function structured<T>(
+  role: "planner" | "verifier" | "reviewer",
   messages: ChatCompletionMessageParam[],
   tool: ChatCompletionTool,
   maxTokens: number,
@@ -105,16 +106,15 @@ async function structured<T>(
 }
 
 // ---------- Planner ----------
-async function plan(c: LiveCase, signal: AbortSignal): Promise<{ items: ChecklistItem[]; ms: number }> {
+const rules = (r: string[]) => r.map((x) => `- ${x}`).join("\n");
+
+async function plan(c: LiveCase, pb: Playbook, signal: AbortSignal): Promise<{ items: ChecklistItem[]; ms: number }> {
   const messages: ChatCompletionMessageParam[] = [
     {
       role: "system",
       content:
-        `You are the Planner for a clinic back office. Turn a case goal into a done-checklist: 3 to 5 checks that a Verifier can decide as pass/fail purely from tool results and the chart. ` +
-        `Each check is one concrete, observable condition about facts in the case data below or about what the worker produces (a submission, fax or packet and its values). ` +
-        `At least one check must confirm the outbound action happened with the right values. The Verifier also sees an NPI registry (name, specialty, city, networks, first_available), so provider checks may use it. ` +
-        `Judge final outputs, not process: describe what must be true of the submission, fax or packet and its values (e.g. "the referring NPI on the submitted claim belongs to a provider whose registry specialty matches the referral"), never what an individual tool call returned, how many times a tool was called, or timestamps. ` +
-        `Packets copy what the chart has (document names, dates, statuses); never require result values the chart doesn't show. Only check what the goal needs; never invent requirements the case data doesn't state (claim amounts, "no other fields changed", formats). No vague items like "work is accurate". ${ENV} ${SAFETY}\n` +
+        `You are the Planner for a clinic back office. Turn a case goal into a done-checklist: 3 to 5 checks that a Verifier can decide as pass/fail purely from tool results and the chart.\n` +
+        `Playbook v${pb.version}:\n${rules(pb.planner)}\n${ENV} ${SAFETY}\n` +
         `Call submit_checklist; each item has an id (c1, c2…), the check, and the evidence (which tool result or chart field proves it).`,
     },
     {
@@ -177,14 +177,14 @@ async function verify(c: LiveCase, items: ChecklistItem[], ctx: ToolCtx, log: un
 }
 
 // ---------- one case, end to end ----------
-export async function runCase(c: LiveCase, emit: Emit, signal: AbortSignal): Promise<"closed" | "escalated"> {
+export async function runCase(c: LiveCase, emit: Emit, signal: AbortSignal, pb: Playbook = loadPlaybook()): Promise<"closed" | "escalated"> {
   const escalate = (reason: string, by: Extract<RunEvent, { type: "escalated" }>["by"]) => {
     emit({ type: "escalated", caseId: c.id, reason, by });
     return "escalated" as const;
   };
   try {
     emit({ type: "delegated", caseId: c.id, agent: c.agent });
-    const { items, ms } = await plan(c, signal);
+    const { items, ms } = await plan(c, pb, signal);
     emit({ type: "checklist", caseId: c.id, items, ms });
 
     const ctx: ToolCtx = { c, round: 0, calls: {}, chartSeen: null, outbox: [] };
@@ -197,9 +197,9 @@ export async function runCase(c: LiveCase, emit: Emit, signal: AbortSignal): Pro
       {
         role: "system",
         content:
-          `You are the ${c.agent} worker agent at Sunrise Family Medicine. Complete the case with your tools; never invent facts a tool did not return. ${SAFETY} ` +
-          `${ENV} Finish the job: submit, fax or save the packet; outbound actions are held until a Verifier checks them, so act rather than ask. ` +
-          `Call escalate_to_staff only for a requires_human result, something clinical, or a tool that keeps failing with no alternative; escalating work you could finish is a failure. Do only what the goal asks; don't hunt for data it doesn't need. When finished, reply with a one-sentence summary and no tool call.`,
+          `You are the ${c.agent} worker agent at Sunrise Family Medicine. A Verifier checks your work against the done-checklist before anything leaves the clinic.\n` +
+          `Playbook v${pb.version}:\n${rules(pb.worker)}\n${ENV} ${SAFETY}\n` +
+          `When finished, reply with a one-sentence summary and no tool call.`,
       },
       { role: "user", content: `Case ${c.id}: ${c.goal}\nDone-checklist:\n${items.map((x, i) => `${i + 1}. ${x.check}`).join("\n")}` },
     ];
@@ -293,9 +293,9 @@ export async function runCase(c: LiveCase, emit: Emit, signal: AbortSignal): Pro
 }
 
 // ---------- whole backlog ----------
-export async function runBacklog(cases: LiveCase[], emit: Emit, signal: AbortSignal, parallel = 4, models: Record<string, string> = {}) {
+export async function runBacklog(cases: LiveCase[], emit: Emit, signal: AbortSignal, parallel = 4, models: Record<string, string> = {}, pb: Playbook = loadPlaybook()) {
   const t0 = Date.now();
-  emit({ type: "run_start", goal: RUN_GOAL, cases: cases.map((c) => c.id), models, parallel });
+  emit({ type: "run_start", goal: RUN_GOAL, cases: cases.map((c) => c.id), models, parallel, playbook: pb.version });
   const queue = [...cases];
   let closed = 0;
   let escalated = 0;
@@ -303,7 +303,7 @@ export async function runBacklog(cases: LiveCase[], emit: Emit, signal: AbortSig
     Array.from({ length: Math.min(parallel, cases.length) }, async () => {
       while (queue.length && !signal.aborted) {
         const c = queue.shift()!;
-        const r = await runCase(c, emit, signal).catch(() => null);
+        const r = await runCase(c, emit, signal, pb).catch(() => null);
         if (r === "closed") closed++;
         else if (r === "escalated") escalated++;
       }
