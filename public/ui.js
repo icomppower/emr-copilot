@@ -684,35 +684,50 @@ updateRow(c);
 }
 renderStats();render();
 }
+/* One request per case, CASE_CONCURRENCY lanes in the browser: no single server request has to fit the whole
+   backlog inside the host's function time limit (Vercel Hobby: 300 s). */
+async function streamCase(cid,id,signal){
+const res=await fetch(`/api/run?cases=${encodeURIComponent(cid)}&parallel=1`,{signal,headers:{Accept:"text/event-stream"}});
+if(!res.ok||!res.body){const j=await res.json().catch(()=>({}));throw new Error(j.error||"HTTP "+res.status)}
+const reader=res.body.pipeThrough(new TextDecoderStream()).getReader();let buf="";
+for(;;){
+const {value,done}=await reader.read();if(done||runId!==id)break;
+buf+=value;let i;
+while((i=buf.indexOf("\n\n"))>=0){
+const data=buf.slice(0,i).split("\n").filter(l=>l.startsWith("data:")).map(l=>l.slice(5).trim()).join("\n");buf=buf.slice(i+2);
+if(!data)continue;
+try{const e=JSON.parse(data);if(e.type!=="run_start"&&e.type!=="run_end")onLive(e,id)}catch(err){console.error("live event",err)}
+}
+}
+}
 async function runLive(){
 hardReset();const id=++runId;running=true;
 $("run").disabled=true;$("run").textContent="Running…";$("clockSub").textContent="unattended";setModeChip("running");
 await walkAway(id).catch(()=>{});if(runId!==id)return;
 rootData._planner.status="active";render();
 const ctrl=new AbortController();LIVE.ctrl=ctrl;
-try{
-const res=await fetch("/api/run",{signal:ctrl.signal,headers:{Accept:"text/event-stream"}});
-if(!res.ok||!res.body){const j=await res.json().catch(()=>({}));throw new Error(j.error||"HTTP "+res.status)}
-const reader=res.body.pipeThrough(new TextDecoderStream()).getReader();let buf="";LIVE.ended=false;
-for(;;){
-const {value,done}=await reader.read();if(done||runId!==id)break;
-buf+=value;let i;
-while((i=buf.indexOf("\n\n"))>=0){
-const data=buf.slice(0,i).split("\n").filter(l=>l.startsWith("data:")).map(l=>l.slice(5).trim()).join("\n");buf=buf.slice(i+2);
-if(data)try{onLive(JSON.parse(data),id)}catch(err){console.error("live event",err)}
-}
-}
-}catch(err){
+const lanes=Math.max(1,Math.min(8,LIVE.cfg?.concurrency||4)),queue=CASES.map(c=>c.id);
+log("Planner",`Goal received: ${CASES.length} cases. Splitting across ${SPECS.length} specialists, ${lanes} cases in parallel.`,"","","pl");
+let fatal=null;
+await Promise.all(Array.from({length:lanes},async()=>{
+while(queue.length&&runId===id&&!fatal){
+const cid=queue.shift();
+try{await streamCase(cid,id,ctrl.signal)}
+catch(err){
 if(runId!==id||err.name==="AbortError")return;
-log("System",`Live run failed: ${esc(err.message)}. Scripted fallback: add ?demo to the URL.`,"e","","pl");toast("Live run failed: "+err.message);
+if(!caseNode[cid]){fatal=err;return} /* nothing started: endpoint itself is failing */
+log("System",`${cid}: connection lost (${esc(err.message)})`,"e",cid,"pl");
 }
-if(runId===id&&running&&!LIVE.ended){
-/* Stream closed without run_end: the server hit its time limit (Vercel Hobby: 300 s). Say so instead of a "backlog cleared" report. */
-const left=CASES.filter(c=>!["done","esc"].includes(state[c.id])).length;
-running=false;setModeChip("stopped early");$("run").disabled=false;$("run").textContent="Run again";$("clockSub").textContent="stopped early";
-log("System",`Run stopped before the end (server time limit). ${n.done} closed, ${n.esc} to staff, ${left} not finished.`,"e","","pl");
-toast(`Run stopped early: ${left} case${left===1?"":"s"} not finished (server time limit).`);
 }
+}));
+if(runId!==id)return;
+if(fatal){
+running=false;setModeChip("error");$("run").disabled=false;$("run").textContent="Run again";$("clockSub").textContent="run failed";
+log("System",`Live run failed: ${esc(fatal.message)}. Scripted fallback: add ?demo to the URL.`,"e","","pl");toast("Live run failed: "+fatal.message);return;
+}
+const left=CASES.filter(c=>!["done","esc"].includes(state[c.id]));
+if(left.length)log("System",`${left.length} case${left.length===1?"":"s"} cut off before finishing: ${left.map(c=>c.id).join(", ")}.`,"e","","pl");
+LIVE.ended=true;setModeChip(left.length?`done · ${left.length} cut off`:"done");finish(id);
 }
 /* ======================= Playbook panel (Version N+1) ======================= */
 /* Secondary on purpose: version, the Reviewer's one change, and before/after scores from /runs. */
