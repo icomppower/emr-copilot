@@ -2,6 +2,7 @@ import type { ChatCompletionMessageParam, ChatCompletionTool } from "openai/reso
 import { RUN_GOAL, type LiveCase } from "./cases";
 import { chat, parseJsonReply } from "./llm";
 import { loadPlaybook, type Playbook } from "./playbook";
+import { REGISTRY } from "./cases";
 import { registryFor, runTool, toolsFor, validateArgs, type ToolCtx } from "./tools";
 
 export const MAX_REPLANS = 2;
@@ -137,8 +138,17 @@ async function plan(c: LiveCase, pb: Playbook, signal: AbortSignal): Promise<{ i
 }
 
 // ---------- Verifier ----------
-async function verify(c: LiveCase, items: ChecklistItem[], ctx: ToolCtx, log: unknown[], signal: AbortSignal): Promise<{ verdicts: Verdict[]; ms: number }> {
+async function verify(c: LiveCase, items: ChecklistItem[], ctx: ToolCtx, log: { tool: string; args: unknown; result: unknown }[], signal: AbortSignal): Promise<{ verdicts: Verdict[]; ms: number }> {
   const evidence = JSON.stringify({ outbound_gate_current: ctx.outbox, tool_log: log });
+  // Deterministic cross-reference, handed to the Verifier as evidence (it still makes the call): every NPI in the
+  // outgoing submission, with the specialty earlier tool results claimed vs what the registry says.
+  const outNpis = [...new Set((JSON.stringify(ctx.outbox).match(/\d{4}\b/g) || []).map((d) => "••" + d).filter((k) => REGISTRY[k]))];
+  const crossCheck = outNpis.map((npi) => {
+    const claimed = [...new Set(log.flatMap((l) => (l.tool === "check_npi" ? ((l.result as { matches?: { npi: string; specialty?: string }[] }).matches || []).filter((m) => m.npi === npi && m.specialty).map((m) => m.specialty!) : [])))];
+    const reg = REGISTRY[npi];
+    const conflict = claimed.some((sp) => sp.toLowerCase() !== reg.specialty.toLowerCase());
+    return `${npi} in outgoing submission: registry says ${reg.name}, ${reg.specialty}${claimed.length ? `; lookup results claimed ${claimed.join("/")}` : ""}${conflict ? " — CONFLICT: the lookup label disagrees with the registry" : ""}`;
+  });
   const chart = ctx.chartSeen || c.chart;
   const messages: ChatCompletionMessageParam[] = [
     {
@@ -154,7 +164,9 @@ async function verify(c: LiveCase, items: ChecklistItem[], ctx: ToolCtx, log: un
       role: "user",
       content:
         `Case ${c.id}: ${c.goal}\nChecklist:\n${items.map((x, i) => `${i + 1}. ${x.check}`).join("\n")}\n\n` +
-        `Chart (current):\n${JSON.stringify(chart)}\n\nNPI registry records:\n${JSON.stringify(registryFor(evidence + JSON.stringify(chart)))}\n\nEvidence:\n${evidence}`,
+        `Chart (current):\n${JSON.stringify(chart)}\n\nNPI registry records (authoritative):\n${JSON.stringify(registryFor(evidence + JSON.stringify(chart)))}\n` +
+        (crossCheck.length ? `Registry cross-check of the outgoing submission:\n${crossCheck.join("\n")}\n` : "") +
+        `\nEvidence:\n${evidence}`,
     },
   ];
   try {
@@ -268,6 +280,10 @@ export async function runCase(c: LiveCase, emit: Emit, signal: AbortSignal, pb: 
       const pass = verdicts.every((v) => v.pass);
       emit({ type: "check_result", caseId: c.id, round: ctx.round + 1, pass, verdicts, ms: vms });
       if (pass) {
+        // Close gate, enforced in code: a case whose chart or payer criteria require a human never closes,
+        // whatever the worker did or the Verifier said.
+        const human = [c.chart, c.criteria].map((x) => x?.requires_human).find((x): x is string => typeof x === "string");
+        if (human) return escalate(`Close blocked: ${human}`, "rule");
         emit({ type: "closed", caseId: c.id, summary: summary || "All checks passed.", value: c.value, released: ctx.outbox.map((o) => o.reference) });
         return "closed";
       }

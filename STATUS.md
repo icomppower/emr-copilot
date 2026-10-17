@@ -1,6 +1,19 @@
-# Status: Fri Oct 16, 23:50 (branch `live-agent-loop`)
+# Status: Sat Oct 17, 00:15 (branch `live-agent-loop`)
 
-All work tonight ran on `claude-haiku-5-5` as a stand-in. Nothing is tuned on Nemotron yet.
+Tuning and the Version N+1 experiments ran on `claude-haiku-5-5`. At 00:06 the first full run on **Crusoe + Nemotron** went through the Vercel preview (details below).
+
+## Nemotron on Crusoe (first runs)
+- **Models:** Planner and Verifier `nvidia/NVIDIA-Nemotron-3-Super-120B-A12B`, Worker `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B`. This key has no Ultra, so the Verifier uses Super.
+- **Smoke test:** Super and Nano both pass all 3 tests.
+- **Preview, CASE_CONCURRENCY=1:** the run was cut off by Vercel Hobby's 300 s function limit.
+- **Preview, CASE_CONCURRENCY=4:** completed in 247 s, no errors; 17 closed, 3 to staff, $11,983.35. It exposed two bugs:
+  1. **CP-2204 closed instead of escalating.** The Nano worker never read the chart, so the requires_human rule never fired.
+  2. **DN-3308 passed with the wrong NPI.** The Super Verifier trusted the stale lookup label over the registry.
+- **Fixed (00:13):**
+  - A close gate in code: no case closes while its chart or payer criteria require a human.
+  - The Verifier now gets a deterministic registry cross-check of every NPI in the outgoing submission.
+  - Re-tested locally on Nemotron with CP-2204, DN-3308 and PA-1043: CP-2204 escalates by rule, DN-3308 goes fail → re-plan → pass with ••8820, and PA-1043 goes to staff.
+- **Not yet re-run as a full 20 on the preview after the fix.**
 
 ## What works
 - **Live agent loop, 20 cases, 4 in parallel:** Planner done-checklist → Worker tools → Verifier → close, re-plan (max 2), loop stop or escalation. No crashes in any run. DN-3308 (wrong-specialty NPI) goes fail → re-plan → pass reliably.
@@ -26,7 +39,7 @@ Score = correct closes + correct escalations − over-escalations − 2·missed 
 - **Haiku still over-escalates about 1 case in 12, at random:** the worker escalates work it could finish, or the Verifier fails a correct output on wording. That's the main source of the noise above.
 - **The first experiment found a CP-2205 data bug:** the chart changed between Planner and Verifier. It's fixed, and those runs are archived in `runs/pre-fix/`.
 - **No Nemotron runs at all:** tool-call reliability and the over-escalation rate on Nemotron are unknown.
-- **The Vercel preview is not set up yet.** It's in progress after this file.
+- **Vercel Hobby limits a run to 300 s.** Keep CASE_CONCURRENCY at 4 or more for a full 20-case run.
 
 ## Commands
 ```bash
