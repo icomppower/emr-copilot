@@ -11,7 +11,7 @@ export async function GET() {
     demoMode: cfg.demoMode,
     provider: cfg.baseUrl ? new URL(cfg.baseUrl).host : "",
     models: cfg.models,
-    concurrency: Math.max(1, Math.min(8, Number(process.env.CASE_CONCURRENCY) || 4)),
+    concurrency: Math.max(1, Math.min(20, Number(process.env.CASE_CONCURRENCY) || 4)),
     cases: LIVE_CASES.map((c) => c.id),
   });
 }

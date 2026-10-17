@@ -115,7 +115,9 @@ export async function chat(
       const status = e instanceof APIError ? e.status : undefined;
       const retryable = (status !== undefined && RETRY_STATUS.has(status)) || (e instanceof APIError && status === undefined); // connection errors
       if (!retryable || attempt + 1 >= MAX_ATTEMPTS || opts.signal?.aborted) throw e;
-      await sleep(retryDelay(e, attempt), opts.signal);
+      const wait = retryDelay(e, attempt);
+      console.warn(`[llm] backoff role=${role} status=${status ?? "conn"} attempt=${attempt + 1} wait_ms=${Math.round(wait)}`);
+      await sleep(wait, opts.signal);
     }
   }
 }

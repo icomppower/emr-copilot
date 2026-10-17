@@ -4,7 +4,7 @@ import { llmConfig } from "@/lib/llm";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 300;
+export const maxDuration = 800;
 
 // Streams the live run as Server-Sent Events. The UI reads it with fetch (not EventSource),
 // so a finished stream never auto-reconnects into a second run.
@@ -17,7 +17,7 @@ export async function GET(req: Request) {
   const only = url.searchParams.get("cases")?.split(",").filter(Boolean);
   const cases = only?.length ? LIVE_CASES.filter((c) => only.includes(c.id)) : LIVE_CASES;
   // Cases in flight at once: CASE_CONCURRENCY (default 4), overridable per request with ?parallel=.
-  const parallel = Math.max(1, Math.min(8, Number(url.searchParams.get("parallel")) || Number(process.env.CASE_CONCURRENCY) || 4));
+  const parallel = Math.max(1, Math.min(20, Number(url.searchParams.get("parallel")) || Number(process.env.CASE_CONCURRENCY) || 4));
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({

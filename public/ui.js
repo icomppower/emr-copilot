@@ -706,7 +706,7 @@ $("run").disabled=true;$("run").textContent="Running…";$("clockSub").textConte
 await walkAway(id).catch(()=>{});if(runId!==id)return;
 rootData._planner.status="active";render();
 const ctrl=new AbortController();LIVE.ctrl=ctrl;
-const lanes=Math.max(1,Math.min(8,LIVE.cfg?.concurrency||4)),queue=CASES.map(c=>c.id);
+const lanes=Math.max(1,Math.min(20,LIVE.cfg?.concurrency||4)),queue=CASES.map(c=>c.id);
 log("Planner",`Goal received: ${CASES.length} cases. Splitting across ${SPECS.length} specialists, ${lanes} cases in parallel.`,"","","pl");
 let fatal=null;
 await Promise.all(Array.from({length:lanes},async()=>{
