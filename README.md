@@ -23,7 +23,7 @@ Each case runs Planner → Worker → Verifier → decide, 4 cases in parallel:
 The SSE events are `delegated`, `checklist`, `tool_call`, `check_result`, `replan`, `loop_detected`, `escalated` and `closed` (plus `run_start`, `run_end` and `error`).
 
 The mock tools are deterministic: `read_chart`, `read_era`, `check_npi`, `payer_criteria`, `submit_claim`, `submit_auth`, `fax_send`, `prepare_packet` and `escalate_to_staff`. They include these planted traps:
-- **DN-3308:** the NPI search returns a same-name dermatologist for a cardiology referral, and only the Verifier's registry check catches it.
+- **DN-3308:** a stale directory lookup labels a same-name dermatologist as cardiology, and only the Verifier's authoritative registry check catches it.
 - **PA-1042:** the payer portal returns a 504 on the first submit.
 - **RF-4412:** the referral fax line is always busy, which trips the loop detector.
 - **DN-3311:** the clearinghouse rejects the first submit.
