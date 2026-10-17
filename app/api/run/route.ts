@@ -16,7 +16,8 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const only = url.searchParams.get("cases")?.split(",").filter(Boolean);
   const cases = only?.length ? LIVE_CASES.filter((c) => only.includes(c.id)) : LIVE_CASES;
-  const parallel = Math.max(1, Math.min(8, Number(url.searchParams.get("parallel")) || 4));
+  // Cases in flight at once: CASE_CONCURRENCY (default 4), overridable per request with ?parallel=.
+  const parallel = Math.max(1, Math.min(8, Number(url.searchParams.get("parallel")) || Number(process.env.CASE_CONCURRENCY) || 4));
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({

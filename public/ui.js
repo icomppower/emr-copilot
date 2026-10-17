@@ -675,7 +675,7 @@ log("Planner",`Closed: ${esc(e.summary)}`,c.value?"f":"o",c.id,"pl");autoClose(c
 case"error":
 log("System",esc(e.message),"e",e.caseId||"","pl");break;
 case"run_end":
-setModeChip("done");finish(id);return;
+LIVE.ended=true;setModeChip("done");finish(id);return;
 }
 if(c){
 n.steps=Math.round((n.done+n.esc)/CASES.length*TOTAL);
@@ -693,7 +693,7 @@ const ctrl=new AbortController();LIVE.ctrl=ctrl;
 try{
 const res=await fetch("/api/run",{signal:ctrl.signal,headers:{Accept:"text/event-stream"}});
 if(!res.ok||!res.body){const j=await res.json().catch(()=>({}));throw new Error(j.error||"HTTP "+res.status)}
-const reader=res.body.pipeThrough(new TextDecoderStream()).getReader();let buf="";
+const reader=res.body.pipeThrough(new TextDecoderStream()).getReader();let buf="";LIVE.ended=false;
 for(;;){
 const {value,done}=await reader.read();if(done||runId!==id)break;
 buf+=value;let i;
@@ -706,7 +706,13 @@ if(data)try{onLive(JSON.parse(data),id)}catch(err){console.error("live event",er
 if(runId!==id||err.name==="AbortError")return;
 log("System",`Live run failed: ${esc(err.message)}. Scripted fallback: add ?demo to the URL.`,"e","","pl");toast("Live run failed: "+err.message);
 }
-if(runId===id&&running){setModeChip("done");finish(id)}
+if(runId===id&&running&&!LIVE.ended){
+/* Stream closed without run_end: the server hit its time limit (Vercel Hobby: 300 s). Say so instead of a "backlog cleared" report. */
+const left=CASES.filter(c=>!["done","esc"].includes(state[c.id])).length;
+running=false;setModeChip("stopped early");$("run").disabled=false;$("run").textContent="Run again";$("clockSub").textContent="stopped early";
+log("System",`Run stopped before the end (server time limit). ${n.done} closed, ${n.esc} to staff, ${left} not finished.`,"e","","pl");
+toast(`Run stopped early: ${left} case${left===1?"":"s"} not finished (server time limit).`);
+}
 }
 /* ======================= Playbook panel (Version N+1) ======================= */
 /* Secondary on purpose: version, the Reviewer's one change, and before/after scores from /runs. */
