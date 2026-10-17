@@ -9,8 +9,13 @@ An agent team that clears a clinic's overnight back-office backlog (claim denial
 - Oct 16 (evening): Next.js wrapper, the live agent loop (`lib/`), `/api/run` SSE streaming and the live-mode UI wiring. Runs against the Claude API as a stand-in until Crusoe credentials arrive.
 - Oct 16, 23:20 – Oct 17, 01:30: config-only provider swap (model per role, per-model sampling params, rate-limit backoff, forced-tool-call fallback) and the Version N+1 self-improvement layer (Reviewer agent, versioned playbooks, fixed training/held-out split, scored runs in `/runs`, Playbook panel). All tuned on `claude-haiku-5-5`, not yet on Nemotron.
 
-**Built at the event (Oct 17)**
-- _Fill in on the day._
+- Oct 17, 00:00–00:40 (before doors): first runs on **Crusoe + Nemotron** (Super 120B for Planner/Verifier, Nano 30B for Worker). Fixed what Nemotron exposed: a close gate in code for human-only cases, a deterministic NPI registry cross-check in the Verifier's evidence, and one request per case so no request has to fit the whole backlog. Full 20-case run on the preview: 16 closed, 4 to staff, DN-3308 fail → re-plan → pass.
+
+**Built at the event (Oct 17, 13:30–17:00)**
+- Case lanes raised from a hard cap of 8 to 20 (`CASE_CONCURRENCY`), `maxDuration` 800 s, and a log line for every rate-limit backoff, so 429s show in Vercel runtime logs.
+- Merged `live-agent-loop` to `main`: production (emr-copilot.vercel.app) now runs the live loop on Nemotron via Crusoe instead of the scripted demo.
+- Final unattended production run on Nemotron (numbers in `STATUS.md` and the pitch deck).
+- 1-minute video.
 
 ## How the loop works
 
