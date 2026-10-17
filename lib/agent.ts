@@ -86,13 +86,19 @@ async function structured<T>(
   for (let attempt = 1; attempt <= 2; attempt++) {
     const r = await chat(role, messages, { signal, maxTokens, tools: [tool], forceTool: name });
     ms += r.ms;
+    const call = r.message.tool_calls?.find((t) => t.type === "function" && t.function.name === name);
     try {
-      const call = r.message.tool_calls?.find((t) => t.type === "function" && t.function.name === name);
-      const parsed = (call && call.type === "function" ? JSON.parse(call.function.arguments) : parseJsonReply(r.message.content)) as Record<string, unknown>;
-      return { value: validate(parsed), ms };
+      if (call && call.type === "function") return { value: validate(JSON.parse(call.function.arguments) as Record<string, unknown>), ms };
+      // No tool call despite tool_choice (open models do this): retry once, then fall back to JSON in the text.
+      if (attempt === 1) {
+        lastError = "no tool call";
+        messages.push({ role: "assistant", content: r.message.content || "" }, { role: "user", content: `Respond only via the ${name} tool. Call it now.` });
+        continue;
+      }
+      return { value: validate(parseJsonReply(r.message.content) as Record<string, unknown>), ms };
     } catch (e) {
       lastError = (e as Error).message;
-      messages.push({ role: "user", content: `Your previous ${name} call was invalid: ${lastError}. Call ${name} again.` });
+      if (attempt === 1) messages.push({ role: "user", content: `Your previous ${name} call was invalid: ${lastError}. Call ${name} again.` });
     }
   }
   throw new Error(`${name} invalid twice: ${lastError}`);

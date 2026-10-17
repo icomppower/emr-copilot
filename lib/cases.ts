@@ -177,8 +177,8 @@ export const LIVE_CASES: LiveCase[] = [
     goal: "Prepare the pre-visit packet for tomorrow's 11:00 diabetes follow-up.",
     chart: {
       patient: "Evelyn Brooks (synthetic)", appointment: "2026-10-17 11:00 diabetes follow-up",
-      lab_system_flag: "A result from 2026-10-15 carries the lab system's critical-value flag.",
-      requires_human: "Lab system flagged a critical value. A physician must review it; agents do not read or assess clinical results.",
+      lab_system_flag: "A result from 2026-10-15 is flagged for physician review.",
+      requires_human: "Lab result flagged for physician review. Agents never assess clinical content.",
     },
   },
   {

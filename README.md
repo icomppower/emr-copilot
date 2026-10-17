@@ -41,8 +41,7 @@ npm run dev                  # http://localhost:3000 → Run overnight
 |---|---|
 | `LLM_BASE_URL` | OpenAI-compatible endpoint. Tonight `https://api.anthropic.com/v1`; event day `https://api.inference.crusoecloud.com/v1` |
 | `LLM_API_KEY` | Server-side only (`.env.local` / Vercel env). Never sent to the browser |
-| `LLM_MODEL` | Planner and workers |
-| `LLM_MODEL_VERIFIER` | Verifier (defaults to `LLM_MODEL`) |
+| `LLM_MODEL_PLANNER`, `LLM_MODEL_WORKER`, `LLM_MODEL_VERIFIER` | Model per role; each falls back to `LLM_MODEL` |
 | `DEMO_MODE` | `1` forces the scripted fallback |
 
 With no key, or with `DEMO_MODE=1` or `?demo` in the URL, the console runs the original scripted demo and is labeled `DEMO_MODE · scripted`.
